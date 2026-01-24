@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{MICROSERVICE_SLUG}}-rapi
+  namespace: dev
+  labels:
+    app: {{MICROSERVICE_SLUG}}-rapi
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+spec:
+  selector:
+    matchLabels:
+      app: {{MICROSERVICE_SLUG}}-rapi
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: {{MICROSERVICE_SLUG}}-rapi
+    spec:
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 2001
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        performance: fast
+      containers:
+        - name: {{MICROSERVICE_SLUG}}-rapi
+          image: registry.pullstream.com/{{RAPI_REPO_PATH}}/web:dev-amd64
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: {{MICROSERVICE_SLUG}}-secret
+            - configMapRef:
+                name: {{MICROSERVICE_SLUG}}-configmap
+            - configMapRef:
+                name: hosts-configmap-nodejs
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - "ALL"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 30"]
+
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+              httpHeaders:
+              - name: Host
+                value: {{MICROSERVICE_SLUG}}-rapi
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+              httpHeaders:
+              - name: Host
+                value: {{MICROSERVICE_SLUG}}-rapi
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+              httpHeaders:
+              - name: Host
+                value: {{MICROSERVICE_SLUG}}-rapi
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: tmpfs
+              mountPath: /tmp
+            - name: tmpfs
+              mountPath: /var/run
+      imagePullSecrets:
+        - name: ps-gitlab-registry-secret
+      volumes:
+        - name: tmpfs
+          emptyDir: {}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{MICROSERVICE_SLUG}}-rapi-hpa
+  namespace: dev
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{MICROSERVICE_SLUG}}-rapi
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0 
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 180
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      - type: Percent
+        value: 50.0
+        periodSeconds: 60
+      selectPolicy: Max
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{MICROSERVICE_SLUG}}-rapi-pdb
+  namespace: dev
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: {{MICROSERVICE_SLUG}}-rapi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{MICROSERVICE_SLUG}}-rapi
+  namespace: dev
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+spec:
+  selector:
+    app: {{MICROSERVICE_SLUG}}-rapi
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP

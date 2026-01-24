@@ -1,0 +1,75 @@
+// /**
+//  * CREATED BY: {{CREATOR_NAME}}
+//  * CREATOR EMAIL: {{CREATOR_EMAIL}}
+//  * CREATION DATE: {{NOW}}
+//  *
+//  *
+//  * DESCRIPTION:
+//  * ------------------
+//  * This file defines the data model and schema configuration for an application using Prisma. It includes declarations of database tables as models, specifying fields, types, relations, indexes, and other database constraints. The schema.prisma file acts as the central definition for the structure of the database, informing Prisma's client generator how to construct queries and mutations based on the defined schema. Additionally, it can be used to configure database connections and Prisma's behavior, ensuring that the application's data layer is well-organized, maintainable, and aligned with the application's data requirements.
+//  *
+//  *
+//  */
+
+// Defines the Prisma client generator configuration.
+// This specifies the use of the Prisma Client JS as the database client for interacting with the database.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configures the database connection details.
+// Uses PostgreSQL as the database provider and reads the connection URL from an environment variable.
+datasource db {
+  provider  = "postgresql"
+  url       = env("PGBOUNCER_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+enum DataExchangeLogType {
+  EXPORT
+  IMPORT
+}
+
+enum DataExchangeLogStatus {
+  COMPLETED
+  FAILED
+  PROCESSING
+}
+
+// ENUM_USES
+
+// The DataExchangeLog model serves as a comprehensive log for tracking and
+// auditing data import and export operations within the system. It records the
+// details of each operation, including its type (import or export), status,
+// associated file information, and any errors encountered. This model facilitates
+// monitoring data movement activities, ensures data integrity, and supports
+// troubleshooting by providing insights into the success or failure of data
+// exchange processes. Visibility controls and association with specific clients
+// and users enable fine-grained access and accountability.
+model DataExchangeLog {
+  id                              String                  @id @default(uuid()) @db.Uuid()
+  type                            DataExchangeLogType // 'IMPORT' or 'EXPORT'
+  status                          DataExchangeLogStatus @default(PROCESSING)
+  modelName                       String // Name of the model being imported/exported
+  filePath                        String? // Path to the file being imported/exported
+  failureReason                   String? // Error message in case the job fails
+  completedAt                     DateTime? // When the job was completed
+  failedAt                        DateTime? // When the job failed
+  importedRowsCount               Int? // Number of rows imported
+  errorsRowsCount                 Int? // Number of rows failed to import
+  metaData                        Json?
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                       String                  @db.Uuid() // User ID of the creator.
+  updatedBy                       String                  @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime                @default(now()) // Creation timestamp.
+  updatedAt                       DateTime                @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// MODEL_USES

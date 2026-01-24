@@ -1,0 +1,1895 @@
+// /**
+//  * CREATED BY: najiba@pullstream.com
+//  * CREATOR EMAIL: najiba@pullstream.com
+//  * CREATION DATE: 21/01/2026
+//  *
+//  *
+//  * DESCRIPTION:
+//  * ------------------
+//  * This file defines the data model and schema configuration for an application using Prisma. It includes declarations of database tables as models, specifying fields, types, relations, indexes, and other database constraints. The schema.prisma file acts as the central definition for the structure of the database, informing Prisma's client generator how to construct queries and mutations based on the defined schema. Additionally, it can be used to configure database connections and Prisma's behavior, ensuring that the application's data layer is well-organized, maintainable, and aligned with the application's data requirements.
+//  *
+//  *
+//  */
+
+// Defines the Prisma client generator configuration.
+// This specifies the use of the Prisma Client JS as the database client for interacting with the database.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configures the database connection details.
+// Uses PostgreSQL as the database provider and reads the connection URL from an environment variable.
+datasource db {
+  provider  = "postgresql"
+  url       = env("PGBOUNCER_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+enum DataExchangeLogType {
+  EXPORT
+  IMPORT
+}
+
+enum DataExchangeLogStatus {
+  COMPLETED
+  FAILED
+  PROCESSING
+}
+
+enum ProspectTemperature {
+  COLD
+  WARM
+  HOT
+}
+
+enum ProspectDisqualificationReason {
+  NO_BUDGET
+  WRONG_TIMING
+  LOST_TO_COMPETITOR
+  UNRESPONSIVE
+  NOT_A_FIT
+  OTHER
+}
+
+enum ActionReminderProgress {
+  T
+  E
+  TEST_ING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum PersonStatus {
+  APPLICANT
+  NEW
+}
+
+enum TargetFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ActionReminderType {
+  REMINDER_EVENT
+  INA_REMINDER_EVENT
+}
+
+enum CompanySize {
+  SIZE_1
+  SIZE_2_TO_10
+  SIZE_11_TO_50
+  SIZE_51_TO_100
+  SIZE_101_TO_250
+  SIZE_251_TO_500
+  SIZE_501_TO_1000
+  SIZE_1001_TO_10000
+}
+
+enum CompanySpinBuyerInfluence {
+  USER
+  TECHNICAL
+  ECONOMIC
+}
+
+enum CustomerSentiment {
+  FEARFUL
+  DISTRESSED
+  CONCERNED
+  OK
+  GOOD
+  SECURE
+  ECSTATIC
+}
+
+enum CustomerPriority {
+  URGENT
+  ASAP
+  LATER
+}
+
+// The DataExchangeLog model serves as a comprehensive log for tracking and
+// auditing data import and export operations within the system. It records the
+// details of each operation, including its type (import or export), status,
+// associated file information, and any errors encountered. This model facilitates
+// monitoring data movement activities, ensures data integrity, and supports
+// troubleshooting by providing insights into the success or failure of data
+// exchange processes. Visibility controls and association with specific clients
+// and users enable fine-grained access and accountability.
+model DataExchangeLog {
+  id                              String                @id @default(uuid()) @db.Uuid()
+  type                            DataExchangeLogType // 'IMPORT' or 'EXPORT'
+  status                          DataExchangeLogStatus @default(PROCESSING)
+  modelName                       String // Name of the model being imported/exported
+  filePath                        String? // Path to the file being imported/exported
+  failureReason                   String? // Error message in case the job fails
+  completedAt                     DateTime? // When the job was completed
+  failedAt                        DateTime? // When the job failed
+  importedRowsCount               Int? // Number of rows imported
+  errorsRowsCount                 Int? // Number of rows failed to import
+  metaData                        Json?
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean               @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean               @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean               @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String                @db.Uuid() // Identifier for the client associated.
+  createdBy                       String                @db.Uuid() // User ID of the creator.
+  updatedBy                       String                @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime              @default(now()) // Creation timestamp.
+  updatedAt                       DateTime              @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+/// Categorization for prospects
+model ProspectCategory {
+  id                               String     @id @default(uuid()) @db.Uuid()
+  /// Detailed explanation of criteria for prospects to be assigned to this category.
+  description                      String?
+  /// Unique identifier name for the prospect category used in segmentation and reporting.
+  name                             String
+  prospectCategoryProspectCategory Prospect[] @relation("ProspectProspectCategoryCategoryId")
+  color                            String?    @db.VarChar(40)
+  tags                             String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                 Boolean    @default(false) // Visibility control.
+  anonymousCanSeeIt                Boolean    @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt  Boolean    @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt           Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt           Json? // Specific users with visibility access.
+  client                           String     @db.Uuid() // Identifier for the client associated.
+  createdBy                        String     @db.Uuid() // User ID of the creator.
+  updatedBy                        String     @db.Uuid() // User ID of the last updater.
+  createdAt                        DateTime   @default(now()) // Creation timestamp.
+  updatedAt                        DateTime   @updatedAt // Last update timestamp.
+  deleted                          DateTime? // Deletion timestamp, if deleted.
+  workflowId                       String?    @db.Uuid()
+  workflowInstanceId               String?    @db.Uuid()
+  isSystemTemplate                 Boolean    @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Pre-opportunity leads with qualification scoring and temperature tracking
+model Prospect {
+  id                              String                          @id @default(uuid()) @db.Uuid()
+  /// Enum field recording why a prospect was removed from active pipeline for analytics and process improvement.
+  disqualificationReason          ProspectDisqualificationReason?
+  /// UUID reference for tracking lead generation attribution. NOTE: This field needs to be linked as a foreign key to Marketing microservice Campaign model when it becomes available. externalRef
+  sourceCampaign                  String?                         @db.Uuid()
+  /// Free-text field capturing the prospect's expressed interests, pain points, and requirements.
+  interestSummary                 String?
+  /// External foreign key to HR microservice Employee model identifying the sales representative responsible for this prospect.
+  ownerId                         String                          @db.Uuid()
+  /// Foreign key to ProspectCategory for classifying prospects by type or source channel.
+  categoryId                      String                          @db.Uuid()
+  /// Foreign key to ProspectCategory for classifying prospects by type or source channel.
+  category                        ProspectCategory                @relation("ProspectProspectCategoryCategoryId", fields: [categoryId], references: [id])
+  /// Foreign key reference to the Person model representing the individual contact associated with this prospect.
+  personId                        String                          @db.Uuid()
+  /// Foreign key reference to the Person model representing the individual contact associated with this prospect.
+  person                          Person                          @relation("ProspectPersonPersonId", fields: [personId], references: [id])
+  /// Numeric score (0-100) indicating prospect qualification level based on fit, interest, and buying signals.
+  qualificationScore              Int
+  /// Enum field indicating prospect engagement level: COLD (dormant), WARM (engaged), HOT (ready to buy).
+  temperature                     ProspectTemperature
+  /// Foreign key to ProspectPipeline defining which qualification workflow this prospect follows.
+  prospectPipelineId              String?                         @db.Uuid()
+  /// Foreign key to ProspectPipeline defining which qualification workflow this prospect follows.
+  prospectPipeline                ProspectPipeline?               @relation("ProspectProspectPipelineProspectPipelineId", fields: [prospectPipelineId], references: [id])
+  /// Foreign key to ProspectPipelineStage indicating current position in the prospect qualification workflow.
+  statusId                        String?                         @db.Uuid()
+  /// Foreign key to ProspectPipelineStage indicating current position in the prospect qualification workflow.
+  status                          ProspectPipelineStage?          @relation("ProspectProspectPipelineStageStatusId", fields: [statusId], references: [id])
+  prospectProspectProductProspect ProspectProduct[]               @relation("ProspectProductProspectProspectId")
+  color                           String?                         @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean                         @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean                         @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean                         @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String                          @db.Uuid() // Identifier for the client associated.
+  createdBy                       String                          @db.Uuid() // User ID of the creator.
+  updatedBy                       String                          @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime                        @default(now()) // Creation timestamp.
+  updatedAt                       DateTime                        @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?                         @db.Uuid()
+  workflowInstanceId              String?                         @db.Uuid()
+  isSystemTemplate                Boolean                         @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Pipeline for prospect progression through stages
+model ProspectPipeline {
+  id                                            String                  @id @default(uuid()) @db.Uuid()
+  /// Unique identifier name for the pipeline configuration used in workflow selection.
+  name                                          String
+  /// Detailed explanation of the pipeline's purpose, target audience, and process methodology.
+  description                                   String?
+  prospectPipelineProspectProspectPipeline      Prospect[]              @relation("ProspectProspectPipelineProspectPipelineId")
+  prospectPipelineProspectPipelineStagePipeline ProspectPipelineStage[] @relation("ProspectPipelineStageProspectPipelinePipelineId")
+  color                                         String?                 @db.VarChar(40)
+  tags                                          String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                              Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt                             Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt               Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                        Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                        Json? // Specific users with visibility access.
+  client                                        String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                                     String                  @db.Uuid() // User ID of the creator.
+  updatedBy                                     String                  @db.Uuid() // User ID of the last updater.
+  createdAt                                     DateTime                @default(now()) // Creation timestamp.
+  updatedAt                                     DateTime                @updatedAt // Last update timestamp.
+  deleted                                       DateTime? // Deletion timestamp, if deleted.
+  workflowId                                    String?                 @db.Uuid()
+  workflowInstanceId                            String?                 @db.Uuid()
+  isSystemTemplate                              Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Products linked to prospects with estimated values
+model ProspectProduct {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  /// Integer quantity of the product units the prospect has expressed interest in purchasing.
+  amount                          Int?
+  /// Projected monetary value of this product line item for revenue forecasting and pipeline reporting.
+  estimatedValue                  Int?
+  /// External foreign key to Inventory microservice ProductVariant model identifying the specific SKU of interest.
+  productVariantId                String    @db.Uuid()
+  /// Foreign key to Prospect model establishing the many-to-one relationship for product interest tracking.
+  prospectId                      String    @db.Uuid()
+  /// Foreign key to Prospect model establishing the many-to-one relationship for product interest tracking.
+  prospect                        Prospect  @relation("ProspectProductProspectProspectId", fields: [prospectId], references: [id])
+  color                           String?   @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?   @db.Uuid()
+  workflowInstanceId              String?   @db.Uuid()
+  isSystemTemplate                Boolean   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Categorization for opportunities
+model OpportunityCategory {
+  id                                     String        @id @default(uuid()) @db.Uuid()
+  /// Unique identifier name for the opportunity category used in filters and reports.
+  name                                   String
+  /// Detailed explanation of the category's purpose and criteria for classification.
+  description                            String?
+  opportunityCategoryOpportunityCategory Opportunity[] @relation("OpportunityOpportunityCategoryCategoryId")
+  color                                  String?       @db.VarChar(40)
+  tags                                   String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                       Boolean       @default(false) // Visibility control.
+  anonymousCanSeeIt                      Boolean       @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt        Boolean       @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                 Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                 Json? // Specific users with visibility access.
+  client                                 String        @db.Uuid() // Identifier for the client associated.
+  createdBy                              String        @db.Uuid() // User ID of the creator.
+  updatedBy                              String        @db.Uuid() // User ID of the last updater.
+  createdAt                              DateTime      @default(now()) // Creation timestamp.
+  updatedAt                              DateTime      @updatedAt // Last update timestamp.
+  deleted                                DateTime? // Deletion timestamp, if deleted.
+  workflowId                             String?       @db.Uuid()
+  workflowInstanceId                     String?       @db.Uuid()
+  isSystemTemplate                       Boolean       @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Stages within prospect pipelines with conversion tracking
+model ProspectPipelineStage {
+  id                                                            String                  @id @default(uuid()) @db.Uuid()
+  /// Integer value determining stage sequence in the pipeline. Lower values display first.
+  order                                                         Int
+  /// Prescribed follow-up action or SLA requirement when a prospect enters this stage.
+  immediateNextAction                                           String?                 @db.VarChar(200)
+  /// Detailed criteria and requirements for prospects to qualify for this pipeline stage.
+  description                                                   String?
+  /// Percentage (0-100) representing expected close probability for prospects at this stage, used in weighted pipeline forecasting.
+  confidence                                                    Int
+  /// Maximum days a prospect can remain in this stage before being flagged as stale for follow-up alerts.
+  rottingDays                                                   Int
+  /// Expected percentage (0-100) of prospects that advance from this stage to the next, used in funnel analytics.
+  conversion                                                    Int
+  /// Display name for the pipeline stage shown in kanban boards, reports, and prospect records.
+  stage                                                         String
+  /// Self-referential foreign key enabling hierarchical stage structures for complex workflows.
+  parentPipelineStageId                                         String?                 @db.Uuid()
+  /// Self-referential foreign key enabling hierarchical stage structures for complex workflows.
+  parentPipelineStage                                           ProspectPipelineStage?  @relation("ProspectPipelineStageProspectPipelineStageParentPipelineStageId", fields: [parentPipelineStageId], references: [id])
+  /// Foreign key to ProspectPipeline establishing stage membership in a specific workflow.
+  pipelineId                                                    String?                 @db.Uuid()
+  /// Foreign key to ProspectPipeline establishing stage membership in a specific workflow.
+  pipeline                                                      ProspectPipeline?       @relation("ProspectPipelineStageProspectPipelinePipelineId", fields: [pipelineId], references: [id])
+  prospectPipelineStageProspectStatus                           Prospect[]              @relation("ProspectProspectPipelineStageStatusId")
+  prospectPipelineStageProspectPipelineStageParentPipelineStage ProspectPipelineStage[] @relation("ProspectPipelineStageProspectPipelineStageParentPipelineStageId")
+  color                                                         String?                 @db.VarChar(40)
+  tags                                                          String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                                              Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt                                             Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt                               Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                                        Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                                        Json? // Specific users with visibility access.
+  client                                                        String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                                                     String                  @db.Uuid() // User ID of the creator.
+  updatedBy                                                     String                  @db.Uuid() // User ID of the last updater.
+  createdAt                                                     DateTime                @default(now()) // Creation timestamp.
+  updatedAt                                                     DateTime                @updatedAt // Last update timestamp.
+  deleted                                                       DateTime? // Deletion timestamp, if deleted.
+  workflowId                                                    String?                 @db.Uuid()
+  workflowInstanceId                                            String?                 @db.Uuid()
+  isSystemTemplate                                              Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Defines the nature of the connection between two records, such as the
+/// relationship between two contacts or a contact and a company.
+model Relationship {
+  id                                         String               @id @default(uuid()) @db.Uuid()
+  /// The `name` field is part of the `Relationship` model. Defines the nature of the connection between two records, such as the relationship between two contacts or a contact and a company.
+  name                                       String
+  /// The `description` field is part of the `Relationship` model. Defines the nature of the connection between two records, such as the relationship between two contacts or a contact and a company.
+  description                                String?
+  relationshipPersonRelationshipRelationship PersonRelationship[] @relation("PersonRelationshipRelationshipRelationshipId")
+  color                                      String?              @db.VarChar(40)
+  tags                                       String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                           Boolean              @default(false) // Visibility control.
+  anonymousCanSeeIt                          Boolean              @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt            Boolean              @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                     Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                     Json? // Specific users with visibility access.
+  client                                     String               @db.Uuid() // Identifier for the client associated.
+  createdBy                                  String               @db.Uuid() // User ID of the creator.
+  updatedBy                                  String               @db.Uuid() // User ID of the last updater.
+  createdAt                                  DateTime             @default(now()) // Creation timestamp.
+  updatedAt                                  DateTime             @updatedAt // Last update timestamp.
+  deleted                                    DateTime? // Deletion timestamp, if deleted.
+  workflowId                                 String?              @db.Uuid()
+  workflowInstanceId                         String?              @db.Uuid()
+  isSystemTemplate                           Boolean              @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Defines different types of social media platforms, such as 'LinkedIn',
+/// 'Twitter', 'Facebook', etc.
+model SocialMediaType {
+  id                                           String               @id @default(uuid()) @db.Uuid()
+  /// The `description` field is part of the `SocialMediaType` model. Defines different types of social media platforms, such as 'LinkedIn', 'Twitter', 'Facebook', etc.
+  description                                  String?
+  /// The `name` field is part of the `SocialMediaType` model. Defines different types of social media platforms, such as 'LinkedIn', 'Twitter', 'Facebook', etc.
+  name                                         String               @db.VarChar(50)
+  socialMediaTypeCompanySocialMediaSocialMedia CompanySocialMedia[] @relation("CompanySocialMediaSocialMediaTypeSocialMediaId")
+  socialMediaTypePersonSocialMediaSocialMedia  PersonSocialMedia[]  @relation("PersonSocialMediaSocialMediaTypeSocialMediaId")
+  color                                        String?              @db.VarChar(40)
+  tags                                         String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                             Boolean              @default(false) // Visibility control.
+  anonymousCanSeeIt                            Boolean              @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt              Boolean              @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                       Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                       Json? // Specific users with visibility access.
+  client                                       String               @db.Uuid() // Identifier for the client associated.
+  createdBy                                    String               @db.Uuid() // User ID of the creator.
+  updatedBy                                    String               @db.Uuid() // User ID of the last updater.
+  createdAt                                    DateTime             @default(now()) // Creation timestamp.
+  updatedAt                                    DateTime             @updatedAt // Last update timestamp.
+  deleted                                      DateTime? // Deletion timestamp, if deleted.
+  workflowId                                   String?              @db.Uuid()
+  workflowInstanceId                           String?              @db.Uuid()
+  isSystemTemplate                             Boolean              @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Defines a geographical area, market segment, or group of accounts that a sales
+/// person or team is responsible for.
+model Territory {
+  id                                   String               @id @default(uuid()) @db.Uuid()
+  /// The `name` field is part of the `Territory` model. Defines a geographical area, market segment, or group of accounts that a sales person or team is responsible for.
+  name                                 String
+  /// The `description` field is part of the `Territory` model. Defines a geographical area, market segment, or group of accounts that a sales person or team is responsible for.
+  description                          String?
+  /// The `expiryDate` field is part of the `Territory` model. Defines a geographical area, market segment, or group of accounts that a sales person or team is responsible for.
+  expiryDate                           DateTime?            @db.Date
+  territoryCompanyInTerritoryTerritory CompanyInTerritory[] @relation("CompanyInTerritoryTerritoryTerritoryId")
+  territoryTerritoryOwnerTerritory     TerritoryOwner[]     @relation("TerritoryOwnerTerritoryTerritoryId")
+  color                                String?              @db.VarChar(40)
+  tags                                 String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                     Boolean              @default(false) // Visibility control.
+  anonymousCanSeeIt                    Boolean              @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt      Boolean              @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt               Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt               Json? // Specific users with visibility access.
+  client                               String               @db.Uuid() // Identifier for the client associated.
+  createdBy                            String               @db.Uuid() // User ID of the creator.
+  updatedBy                            String               @db.Uuid() // User ID of the last updater.
+  createdAt                            DateTime             @default(now()) // Creation timestamp.
+  updatedAt                            DateTime             @updatedAt // Last update timestamp.
+  deleted                              DateTime? // Deletion timestamp, if deleted.
+  workflowId                           String?              @db.Uuid()
+  workflowInstanceId                   String?              @db.Uuid()
+  isSystemTemplate                     Boolean              @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Defines the various channels through which interactions or sales occur, such as
+/// 'Website', 'Email', 'Phone', or 'In-Person'.
+model Channel {
+  id                              String        @id @default(uuid()) @db.Uuid()
+  /// The `description` field is part of the `Channel` model. Defines the various channels through which interactions or sales occur, such as 'Website', 'Email', 'Phone', or 'In-Person'.
+  description                     String?
+  /// The `name` field is part of the `Channel` model. Defines the various channels through which interactions or sales occur, such as 'Website', 'Email', 'Phone', or 'In-Person'.
+  name                            String
+  channelOpportunityChannel       Opportunity[] @relation("OpportunityChannelChannelId")
+  color                           String?       @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean       @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean       @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean       @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String        @db.Uuid() // Identifier for the client associated.
+  createdBy                       String        @db.Uuid() // User ID of the creator.
+  updatedBy                       String        @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime      @default(now()) // Creation timestamp.
+  updatedAt                       DateTime      @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?       @db.Uuid()
+  workflowInstanceId              String?       @db.Uuid()
+  isSystemTemplate                Boolean       @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Categorizes the reason for a customer enquiry, such as product information,
+/// support request, or billing question.
+model CustomerEnquiryPurpose {
+  id                                           String            @id @default(uuid()) @db.Uuid()
+  /// The `name` field is part of the `CustomerEnquiryPurpose` model. Categorizes the reason for a customer enquiry, such as product information, support request, or billing question.
+  name                                         String
+  /// The `description` field is part of the `CustomerEnquiryPurpose` model. Categorizes the reason for a customer enquiry, such as product information, support request, or billing question.
+  description                                  String?
+  customerEnquiryPurposeCustomerEnquiryPurpose CustomerEnquiry[] @relation("CustomerEnquiryCustomerEnquiryPurposePurposeId")
+  color                                        String?           @db.VarChar(40)
+  tags                                         String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                             Boolean           @default(false) // Visibility control.
+  anonymousCanSeeIt                            Boolean           @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt              Boolean           @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                       Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                       Json? // Specific users with visibility access.
+  client                                       String            @db.Uuid() // Identifier for the client associated.
+  createdBy                                    String            @db.Uuid() // User ID of the creator.
+  updatedBy                                    String            @db.Uuid() // User ID of the last updater.
+  createdAt                                    DateTime          @default(now()) // Creation timestamp.
+  updatedAt                                    DateTime          @updatedAt // Last update timestamp.
+  deleted                                      DateTime? // Deletion timestamp, if deleted.
+  workflowId                                   String?           @db.Uuid()
+  workflowInstanceId                           String?           @db.Uuid()
+  isSystemTemplate                             Boolean           @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Tracks the current status of a customer enquiry, such as 'New', 'In Progress',
+/// or 'Resolved'.
+model CustomerEnquiryStatus {
+  id                                         String            @id @default(uuid()) @db.Uuid()
+  /// The `description` field is part of the `CustomerEnquiryStatus` model. Tracks the current status of a customer enquiry, such as 'New', 'In Progress', or 'Resolved'.
+  description                                String?
+  /// The `name` field is part of the `CustomerEnquiryStatus` model. Tracks the current status of a customer enquiry, such as 'New', 'In Progress', or 'Resolved'.
+  name                                       String
+  customerEnquiryStatusCustomerEnquiryStatus CustomerEnquiry[] @relation("CustomerEnquiryCustomerEnquiryStatusStatusId")
+  color                                      String?           @db.VarChar(40)
+  tags                                       String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                           Boolean           @default(false) // Visibility control.
+  anonymousCanSeeIt                          Boolean           @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt            Boolean           @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                     Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                     Json? // Specific users with visibility access.
+  client                                     String            @db.Uuid() // Identifier for the client associated.
+  createdBy                                  String            @db.Uuid() // User ID of the creator.
+  updatedBy                                  String            @db.Uuid() // User ID of the last updater.
+  createdAt                                  DateTime          @default(now()) // Creation timestamp.
+  updatedAt                                  DateTime          @updatedAt // Last update timestamp.
+  deleted                                    DateTime? // Deletion timestamp, if deleted.
+  workflowId                                 String?           @db.Uuid()
+  workflowInstanceId                         String?           @db.Uuid()
+  isSystemTemplate                           Boolean           @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Represents a complete sales or business process, composed of a sequence of
+/// stages that an opportunity or lead moves through.
+model OpportunityPipeline {
+  id                                           String              @id @default(uuid()) @db.Uuid()
+  /// The `description` field is part of the `Pipeline` model. Represents a complete sales or business process, composed of a sequence of stages that an opportunity or lead moves through.
+  description                                  String?
+  /// The `name` field is part of the `Pipeline` model. Represents a complete sales or business process, composed of a sequence of stages that an opportunity or lead moves through.
+  name                                         String              @db.VarChar(50)
+  opportunityPipelinePipelineStagePipeline     PipelineStage[]     @relation("PipelineStageOpportunityPipelinePipelineId")
+  opportunityPipelineSalesPersonTargetPipeline SalesPersonTarget[] @relation("SalesPersonTargetOpportunityPipelinePipelineId")
+  opportunityPipelineOpportunityPipeline       Opportunity[]       @relation("OpportunityOpportunityPipelinePipelineId")
+  color                                        String?             @db.VarChar(40)
+  tags                                         String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                             Boolean             @default(false) // Visibility control.
+  anonymousCanSeeIt                            Boolean             @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt              Boolean             @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                       Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                       Json? // Specific users with visibility access.
+  client                                       String              @db.Uuid() // Identifier for the client associated.
+  createdBy                                    String              @db.Uuid() // User ID of the creator.
+  updatedBy                                    String              @db.Uuid() // User ID of the last updater.
+  createdAt                                    DateTime            @default(now()) // Creation timestamp.
+  updatedAt                                    DateTime            @updatedAt // Last update timestamp.
+  deleted                                      DateTime? // Deletion timestamp, if deleted.
+  workflowId                                   String?             @db.Uuid()
+  workflowInstanceId                           String?             @db.Uuid()
+  isSystemTemplate                             Boolean             @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Defines a series of stages for managing contacts on a call list, from initial
+/// attempt to final outcome.
+model CallListPipeline {
+  id                                                    String                  @id @default(uuid()) @db.Uuid()
+  /// The `description` field is part of the `CallListPipeline` model. Defines a series of stages for managing contacts on a call list, from initial attempt to final outcome.
+  description                                           String?
+  /// The `name` field is part of the `CallListPipeline` model. Defines a series of stages for managing contacts on a call list, from initial attempt to final outcome.
+  name                                                  String
+  callListPipelineCallListPipelineStageCallListPipeline CallListPipelineStage[] @relation("CallListPipelineStageCallListPipelineCallListPipelineId")
+  callListPipelineCallListCallListPipeline              CallList[]              @relation("CallListCallListPipelineCallListPipelineId")
+  color                                                 String?                 @db.VarChar(40)
+  tags                                                  String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                                      Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt                                     Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt                       Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                                Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                                Json? // Specific users with visibility access.
+  client                                                String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                                             String                  @db.Uuid() // User ID of the creator.
+  updatedBy                                             String                  @db.Uuid() // User ID of the last updater.
+  createdAt                                             DateTime                @default(now()) // Creation timestamp.
+  updatedAt                                             DateTime                @updatedAt // Last update timestamp.
+  deleted                                               DateTime? // Deletion timestamp, if deleted.
+  workflowId                                            String?                 @db.Uuid()
+  workflowInstanceId                                    String?                 @db.Uuid()
+  isSystemTemplate                                      Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Defines a distinct stage within a sales or business process pipeline, such as
+/// 'Qualification', 'Proposal', or 'Closed Won'.
+model PipelineStage {
+  id                                            String               @id @default(uuid()) @db.Uuid()
+  /// The `stage` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  stage                                         String               @db.VarChar(150)
+  /// The `conversion` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  conversion                                    Int
+  /// The `confidence` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  confidence                                    Int
+  /// The `rottingDays` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  rottingDays                                   Int
+  /// The `pipeline` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  pipelineId                                    String?              @db.Uuid()
+  /// The `pipeline` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  pipeline                                      OpportunityPipeline? @relation("PipelineStageOpportunityPipelinePipelineId", fields: [pipelineId], references: [id])
+  /// The `parentPipelineStage` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  parentPipelineStageId                         String?              @db.Uuid()
+  /// The `parentPipelineStage` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  parentPipelineStage                           PipelineStage?       @relation("PipelineStagePipelineStageParentPipelineStageId", fields: [parentPipelineStageId], references: [id])
+  /// The `description` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  description                                   String?
+  /// The `immediateNextAction` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  immediateNextAction                           String?              @db.VarChar(200)
+  /// The `order` field is part of the `PipelineStage` model. Defines a distinct stage within a sales or business process pipeline, such as 'Qualification', 'Proposal', or 'Closed Won'.
+  order                                         Int
+  pipelineStagePipelineStageParentPipelineStage PipelineStage[]      @relation("PipelineStagePipelineStageParentPipelineStageId")
+  pipelineStageSalesPersonTargetPipelineStage   SalesPersonTarget[]  @relation("SalesPersonTargetPipelineStagePipelineStageId")
+  pipelineStageOpportunityStatus                Opportunity[]        @relation("OpportunityPipelineStageStatusId")
+  color                                         String?              @db.VarChar(40)
+  tags                                          String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                              Boolean              @default(false) // Visibility control.
+  anonymousCanSeeIt                             Boolean              @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt               Boolean              @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                        Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                        Json? // Specific users with visibility access.
+  client                                        String               @db.Uuid() // Identifier for the client associated.
+  createdBy                                     String               @db.Uuid() // User ID of the creator.
+  updatedBy                                     String               @db.Uuid() // User ID of the last updater.
+  createdAt                                     DateTime             @default(now()) // Creation timestamp.
+  updatedAt                                     DateTime             @updatedAt // Last update timestamp.
+  deleted                                       DateTime? // Deletion timestamp, if deleted.
+  workflowId                                    String?              @db.Uuid()
+  workflowInstanceId                            String?              @db.Uuid()
+  isSystemTemplate                              Boolean              @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Represents a single stage within a call list pipeline, used to track the
+/// progress of contacts on a call list.
+model CallListPipelineStage {
+  id                                                     String            @id @default(uuid()) @db.Uuid()
+  /// The `order` field is part of the `CallListPipelineStage` model. Represents a single stage within a call list pipeline, used to track the progress of contacts on a call list.
+  order                                                  Decimal
+  /// The `rottingDays` field is part of the `CallListPipelineStage` model. Represents a single stage within a call list pipeline, used to track the progress of contacts on a call list.
+  rottingDays                                            Int
+  /// The `name` field is part of the `CallListPipelineStage` model. Represents a single stage within a call list pipeline, used to track the progress of contacts on a call list.
+  name                                                   String
+  /// The `description` field is part of the `CallListPipelineStage` model. Represents a single stage within a call list pipeline, used to track the progress of contacts on a call list.
+  description                                            String?
+  /// The `callListPipeline` field is part of the `CallListPipelineStage` model. Represents a single stage within a call list pipeline, used to track the progress of contacts on a call list.
+  callListPipelineId                                     String?           @db.Uuid()
+  /// The `callListPipeline` field is part of the `CallListPipelineStage` model. Represents a single stage within a call list pipeline, used to track the progress of contacts on a call list.
+  callListPipeline                                       CallListPipeline? @relation("CallListPipelineStageCallListPipelineCallListPipelineId", fields: [callListPipelineId], references: [id])
+  callListPipelineStageCallScheduleCallListPipelineStage CallSchedule[]    @relation("CallScheduleCallListPipelineStageCallListPipelineStageId")
+  callListPipelineStageCallHistoryCallListPipelineStage  CallHistory[]     @relation("CallHistoryCallListPipelineStageCallListPipelineStageId")
+  color                                                  String?           @db.VarChar(40)
+  tags                                                   String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                                       Boolean           @default(false) // Visibility control.
+  anonymousCanSeeIt                                      Boolean           @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt                        Boolean           @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                                 Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                                 Json? // Specific users with visibility access.
+  client                                                 String            @db.Uuid() // Identifier for the client associated.
+  createdBy                                              String            @db.Uuid() // User ID of the creator.
+  updatedBy                                              String            @db.Uuid() // User ID of the last updater.
+  createdAt                                              DateTime          @default(now()) // Creation timestamp.
+  updatedAt                                              DateTime          @updatedAt // Last update timestamp.
+  deleted                                                DateTime? // Deletion timestamp, if deleted.
+  workflowId                                             String?           @db.Uuid()
+  workflowInstanceId                                     String?           @db.Uuid()
+  isSystemTemplate                                       Boolean           @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Represents a company or organization. This is a central record for storing
+/// company-level information and for associating contacts and opportunities.
+model Company {
+  id                                    String                    @id @default(uuid()) @db.Uuid()
+  /// The `name` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  name                                  String                    @db.VarChar(150)
+  /// The `description` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  description                           String?
+  /// The `email` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  email                                 String?
+  /// The `fax` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  fax                                   String?                   @db.VarChar(25)
+  /// The `staffUrl` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  staffUrl                              String?
+  /// The `contactUrl` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  contactUrl                            String?
+  /// The `address1` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  address1                              String?
+  /// The `address2` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  address2                              String?
+  /// The `state` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  stateId                               String?                   @db.Uuid()
+  /// The `zip` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  zip                                   String?                   @db.VarChar(15)
+  /// The `size` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  size                                  CompanySize?
+  /// The `industry` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  industryId                            String?                   @db.Uuid()
+  /// The `keywords` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  keywords                              String?
+  /// The `notes` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  notes                                 String?
+  /// The `branchOf` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  branchOfId                            String?                   @db.Uuid()
+  /// The `branchOf` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  branchOf                              Company?                  @relation("CompanyCompanyBranchOfId", fields: [branchOfId], references: [id])
+  /// The `owner` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  ownerId                               String?                   @db.Uuid()
+  /// The `betaPartners` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  betaPartners                          Boolean
+  /// The `website` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  website                               String?
+  /// The `newsUrl` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  newsUrl                               String?
+  /// The `phone` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  phone                                 String?
+  /// The `country` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  countryId                             String?                   @db.Uuid()
+  /// The `city` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  cityId                                String?                   @db.Uuid()
+  /// The `companyIntelligence` field is part of the `Company` model. Represents a company or organization. This is a central record for storing company-level information and for associating contacts and opportunities.
+  companyIntelligence                   String?
+  companyCompanyBranchOf                Company[]                 @relation("CompanyCompanyBranchOfId")
+  companyPersonCompanyOwner             Person[]                  @relation("PersonCompanyCompanyOwnerId")
+  companyCompanyHistoryCompany          CompanyHistory[]          @relation("CompanyHistoryCompanyCompanyId")
+  companyCompanySocialMediaCompany      CompanySocialMedia[]      @relation("CompanySocialMediaCompanyCompanyId")
+  companyCompanySpinCompany             CompanySpin[]             @relation("CompanySpinCompanyCompanyId")
+  companyAccountManagerInCompanyCompany AccountManagerInCompany[] @relation("AccountManagerInCompanyCompanyCompanyId")
+  companyCompanyInTerritoryCompany      CompanyInTerritory[]      @relation("CompanyInTerritoryCompanyCompanyId")
+  companyCompanyContactCompany          CompanyContact[]          @relation("CompanyContactCompanyCompanyId")
+  companyOpportunityCompany             Opportunity[]             @relation("OpportunityCompanyCompanyId")
+  color                                 String?                   @db.VarChar(40)
+  tags                                  String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                      Boolean                   @default(false) // Visibility control.
+  anonymousCanSeeIt                     Boolean                   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt       Boolean                   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                Json? // Specific users with visibility access.
+  client                                String                    @db.Uuid() // Identifier for the client associated.
+  createdBy                             String                    @db.Uuid() // User ID of the creator.
+  updatedBy                             String                    @db.Uuid() // User ID of the last updater.
+  createdAt                             DateTime                  @default(now()) // Creation timestamp.
+  updatedAt                             DateTime                  @updatedAt // Last update timestamp.
+  deleted                               DateTime? // Deletion timestamp, if deleted.
+  workflowId                            String?                   @db.Uuid()
+  workflowInstanceId                    String?                   @db.Uuid()
+  isSystemTemplate                      Boolean                   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt, ownerId, countryId])
+}
+
+/// Represents an individual person, such as a contact, lead, or user. This is the
+/// core record for storing personal information.
+model Person {
+  id                                String                  @id @default(uuid()) @db.Uuid()
+  /// The `firstName` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  firstName                         String                  @db.VarChar(100)
+  /// The `hasWhatsapp` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  hasWhatsapp                       Boolean
+  /// The `middleName` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  middleName                        String?                 @db.VarChar(100)
+  /// The `preferredName` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  preferredName                     String?                 @db.VarChar(100)
+  /// The `username` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  username                          String?                 @db.VarChar(100)
+  /// The `homePhone` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  homePhone                         String?
+  /// The `avatar` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  avatar                            String?                 @db.VarChar(200)
+  /// The `address1` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  address1                          String?
+  /// The `address2` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  address2                          String?
+  /// The `dob` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  dob                               DateTime?               @db.Date
+  /// The `personalMobile` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  personalMobile                    String?
+  /// The `zip` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  zip                               String?
+  /// The `state` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  stateId                           String?                 @db.Uuid()
+  /// The `parent` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  parentId                          String?                 @db.Uuid()
+  /// The `parent` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  parent                            Person?                 @relation("PersonPersonParentId", fields: [parentId], references: [id])
+  /// The `companyOwner` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  companyOwnerId                    String?                 @db.Uuid()
+  /// The `companyOwner` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  companyOwner                      Company?                @relation("PersonCompanyCompanyOwnerId", fields: [companyOwnerId], references: [id])
+  /// The `source` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  source                            String?
+  /// The `sourceNotes` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  sourceNotes                       String?
+  /// The `owner` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  owner                             String?
+  /// The `notes` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  notes                             String?
+  /// The `lastName` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  lastName                          String?                 @db.VarChar(100)
+  /// The `email` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  email                             String
+  /// The `status` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  status                            PersonStatus?
+  /// The `country` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  countryId                         String?                 @db.Uuid()
+  /// The &#96;user&#96; field is part of the &#96;Person&#96; model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information. externalRef
+  user                              String?                 @db.Uuid()
+  /// The `city` field is part of the `Person` model. Represents an individual person, such as a contact, lead, or user. This is the core record for storing personal information.
+  cityId                            String?                 @db.Uuid()
+  personProspectPerson              Prospect[]              @relation("ProspectPersonPersonId")
+  personPersonParent                Person[]                @relation("PersonPersonParentId")
+  personPersonHistoryPerson         PersonHistory[]         @relation("PersonHistoryPersonPersonId")
+  personPersonSocialMediaPerson     PersonSocialMedia[]     @relation("PersonSocialMediaPersonPersonId")
+  personPersonInMarketingListPerson PersonInMarketingList[] @relation("PersonInMarketingListPersonPersonId")
+  personPersonRelationshipPerson    PersonRelationship[]    @relation("PersonRelationshipPersonPersonId")
+  personCompanyContactPerson        CompanyContact[]        @relation("CompanyContactPersonPersonId")
+  personCustomerEnquiryPerson       CustomerEnquiry[]       @relation("CustomerEnquiryPersonPersonId")
+  personOpportunityPerson           Opportunity[]           @relation("OpportunityPersonPersonId")
+  personCallSchedulePerson          CallSchedule[]          @relation("CallSchedulePersonPersonId")
+  color                             String?                 @db.VarChar(40)
+  tags                              String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                  Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt                 Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt   Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt            Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt            Json? // Specific users with visibility access.
+  client                            String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                         String                  @db.Uuid() // User ID of the creator.
+  updatedBy                         String                  @db.Uuid() // User ID of the last updater.
+  createdAt                         DateTime                @default(now()) // Creation timestamp.
+  updatedAt                         DateTime                @updatedAt // Last update timestamp.
+  deleted                           DateTime? // Deletion timestamp, if deleted.
+  workflowId                        String?                 @db.Uuid()
+  workflowInstanceId                String?                 @db.Uuid()
+  isSystemTemplate                  Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt, countryId])
+}
+
+/// A dynamic or static list of contacts used for targeted marketing campaigns, such
+/// as email newsletters or promotions.
+model MarketingList {
+  id                                              String                  @id @default(uuid()) @db.Uuid()
+  /// The `description` field is part of the `MarketingList` model. A dynamic or static list of contacts used for targeted marketing campaigns, such as email newsletters or promotions.
+  description                                     String?
+  /// The `name` field is part of the `MarketingList` model. A dynamic or static list of contacts used for targeted marketing campaigns, such as email newsletters or promotions.
+  name                                            String
+  /// The `expiryDate` field is part of the `MarketingList` model. A dynamic or static list of contacts used for targeted marketing campaigns, such as email newsletters or promotions.
+  expiryDate                                      DateTime?               @db.Date
+  marketingListPersonInMarketingListMarketingList PersonInMarketingList[] @relation("PersonInMarketingListMarketingListMarketingListId")
+  color                                           String?                 @db.VarChar(40)
+  tags                                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                                Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt                               Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt                 Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                          Json? // Specific users with visibility access.
+  client                                          String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                                       String                  @db.Uuid() // User ID of the creator.
+  updatedBy                                       String                  @db.Uuid() // User ID of the last updater.
+  createdAt                                       DateTime                @default(now()) // Creation timestamp.
+  updatedAt                                       DateTime                @updatedAt // Last update timestamp.
+  deleted                                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                                      String?                 @db.Uuid()
+  workflowInstanceId                              String?                 @db.Uuid()
+  isSystemTemplate                                Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// A historical log of all changes made to a company record, including updates to
+/// its name, address, or status.
+model CompanyHistory {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  /// The `notes` field is part of the `CompanyHistory` model. A historical log of all changes made to a company record, including updates to its name, address, or status.
+  notes                           String?
+  /// The `history` field is part of the `CompanyHistory` model. A historical log of all changes made to a company record, including updates to its name, address, or status.
+  history                         String
+  /// The `company` field is part of the `CompanyHistory` model. A historical log of all changes made to a company record, including updates to its name, address, or status.
+  companyId                       String    @db.Uuid()
+  /// The `company` field is part of the `CompanyHistory` model. A historical log of all changes made to a company record, including updates to its name, address, or status.
+  company                         Company   @relation("CompanyHistoryCompanyCompanyId", fields: [companyId], references: [id])
+  color                           String?   @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?   @db.Uuid()
+  workflowInstanceId              String?   @db.Uuid()
+  isSystemTemplate                Boolean   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Stores a link to a company's social media profile, such as its corporate
+/// LinkedIn page or Twitter account.
+model CompanySocialMedia {
+  id                              String           @id @default(uuid()) @db.Uuid()
+  /// The `url` field is part of the `CompanySocialMedia` model. Stores a link to a company's social media profile, such as its corporate LinkedIn page or Twitter account.
+  url                             String
+  /// The `company` field is part of the `CompanySocialMedia` model. Stores a link to a company's social media profile, such as its corporate LinkedIn page or Twitter account.
+  companyId                       String?          @db.Uuid()
+  /// The `company` field is part of the `CompanySocialMedia` model. Stores a link to a company's social media profile, such as its corporate LinkedIn page or Twitter account.
+  company                         Company?         @relation("CompanySocialMediaCompanyCompanyId", fields: [companyId], references: [id])
+  /// The `socialMedia` field is part of the `CompanySocialMedia` model. Stores a link to a company's social media profile, such as its corporate LinkedIn page or Twitter account.
+  socialMediaId                   String?          @db.Uuid()
+  /// The `socialMedia` field is part of the `CompanySocialMedia` model. Stores a link to a company's social media profile, such as its corporate LinkedIn page or Twitter account.
+  socialMedia                     SocialMediaType? @relation("CompanySocialMediaSocialMediaTypeSocialMediaId", fields: [socialMediaId], references: [id])
+  color                           String?          @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean          @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean          @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean          @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String           @db.Uuid() // Identifier for the client associated.
+  createdBy                       String           @db.Uuid() // User ID of the creator.
+  updatedBy                       String           @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime         @default(now()) // Creation timestamp.
+  updatedAt                       DateTime         @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?          @db.Uuid()
+  workflowInstanceId              String?          @db.Uuid()
+  isSystemTemplate                Boolean          @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Represents a new company that has been spun off from an existing parent company.
+model CompanySpin {
+  id                                            String                    @id @default(uuid()) @db.Uuid()
+  /// The `situation` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  situation                                     String
+  /// The `implication` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  implication                                   String
+  /// The `company` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  companyId                                     String                    @db.Uuid()
+  /// The `company` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  company                                       Company                   @relation("CompanySpinCompanyCompanyId", fields: [companyId], references: [id])
+  /// The `need` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  need                                          String
+  /// The `buyerInfluence` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  buyerInfluence                                CompanySpinBuyerInfluence
+  /// The `notes` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  notes                                         String?
+  /// The `problem` field is part of the `CompanySpin` model. Represents a new company that has been spun off from an existing parent company.
+  problem                                       String
+  companySpinOpportunityEconomicBuyerInfluence  Opportunity[]             @relation("OpportunityCompanySpinEconomicBuyerInfluenceId")
+  companySpinOpportunityTechnicalBuyerInfluence Opportunity[]             @relation("OpportunityCompanySpinTechnicalBuyerInfluenceId")
+  companySpinOpportunityUserBuyerInfluence      Opportunity[]             @relation("OpportunityCompanySpinUserBuyerInfluenceId")
+  color                                         String?                   @db.VarChar(40)
+  tags                                          String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                              Boolean                   @default(false) // Visibility control.
+  anonymousCanSeeIt                             Boolean                   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt               Boolean                   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                        Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                        Json? // Specific users with visibility access.
+  client                                        String                    @db.Uuid() // Identifier for the client associated.
+  createdBy                                     String                    @db.Uuid() // User ID of the creator.
+  updatedBy                                     String                    @db.Uuid() // User ID of the last updater.
+  createdAt                                     DateTime                  @default(now()) // Creation timestamp.
+  updatedAt                                     DateTime                  @updatedAt // Last update timestamp.
+  deleted                                       DateTime? // Deletion timestamp, if deleted.
+  workflowId                                    String?                   @db.Uuid()
+  workflowInstanceId                            String?                   @db.Uuid()
+  isSystemTemplate                              Boolean                   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Assigns a user as the primary account manager for a specific company.
+model AccountManagerInCompany {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  /// The `company` field is part of the `AccountManagerInCompany` model. Assigns a user as the primary account manager for a specific company.
+  companyId                       String    @db.Uuid()
+  /// The `company` field is part of the `AccountManagerInCompany` model. Assigns a user as the primary account manager for a specific company.
+  company                         Company   @relation("AccountManagerInCompanyCompanyCompanyId", fields: [companyId], references: [id])
+  /// The `expiryDate` field is part of the `AccountManagerInCompany` model. Assigns a user as the primary account manager for a specific company.
+  expiryDate                      DateTime? @db.Date
+  /// The `accountManager` field is part of the `AccountManagerInCompany` model. Assigns a user as the primary account manager for a specific company.
+  accountManagerId                String    @db.Uuid()
+  color                           String?   @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?   @db.Uuid()
+  workflowInstanceId              String?   @db.Uuid()
+  isSystemTemplate                Boolean   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt, accountManagerId])
+}
+
+/// Links a company record to a specific sales territory, used for assignment and
+/// reporting.
+model CompanyInTerritory {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  /// The `company` field is part of the `CompanyInTerritory` model. Links a company record to a specific sales territory, used for assignment and reporting.
+  companyId                       String?   @db.Uuid()
+  /// The `company` field is part of the `CompanyInTerritory` model. Links a company record to a specific sales territory, used for assignment and reporting.
+  company                         Company?  @relation("CompanyInTerritoryCompanyCompanyId", fields: [companyId], references: [id])
+  /// The `territory` field is part of the `CompanyInTerritory` model. Links a company record to a specific sales territory, used for assignment and reporting.
+  territoryId                     String    @db.Uuid()
+  /// The `territory` field is part of the `CompanyInTerritory` model. Links a company record to a specific sales territory, used for assignment and reporting.
+  territory                       Territory @relation("CompanyInTerritoryTerritoryTerritoryId", fields: [territoryId], references: [id])
+  /// The `expiryDate` field is part of the `CompanyInTerritory` model. Links a company record to a specific sales territory, used for assignment and reporting.
+  expiryDate                      DateTime? @db.Date
+  color                           String?   @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?   @db.Uuid()
+  workflowInstanceId              String?   @db.Uuid()
+  isSystemTemplate                Boolean   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// A record of all significant changes and interactions associated with a person,
+/// creating a complete audit trail.
+model PersonHistory {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  /// The `notes` field is part of the `PersonHistory` model. A record of all significant changes and interactions associated with a person, creating a complete audit trail.
+  notes                           String
+  /// The `history` field is part of the `PersonHistory` model. A record of all significant changes and interactions associated with a person, creating a complete audit trail.
+  history                         String?
+  /// The `person` field is part of the `PersonHistory` model. A record of all significant changes and interactions associated with a person, creating a complete audit trail.
+  personId                        String    @db.Uuid()
+  /// The `person` field is part of the `PersonHistory` model. A record of all significant changes and interactions associated with a person, creating a complete audit trail.
+  person                          Person    @relation("PersonHistoryPersonPersonId", fields: [personId], references: [id])
+  color                           String?   @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?   @db.Uuid()
+  workflowInstanceId              String?   @db.Uuid()
+  isSystemTemplate                Boolean   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Stores a link to a person's social media profile, associating it with their
+/// contact record.
+model PersonSocialMedia {
+  id                              String           @id @default(uuid()) @db.Uuid()
+  /// The `person` field is part of the `PersonSocialMedia` model. Stores a link to a person's social media profile, associating it with their contact record.
+  personId                        String?          @db.Uuid()
+  /// The `person` field is part of the `PersonSocialMedia` model. Stores a link to a person's social media profile, associating it with their contact record.
+  person                          Person?          @relation("PersonSocialMediaPersonPersonId", fields: [personId], references: [id])
+  /// The `socialMedia` field is part of the `PersonSocialMedia` model. Stores a link to a person's social media profile, associating it with their contact record.
+  socialMediaId                   String?          @db.Uuid()
+  /// The `socialMedia` field is part of the `PersonSocialMedia` model. Stores a link to a person's social media profile, associating it with their contact record.
+  socialMedia                     SocialMediaType? @relation("PersonSocialMediaSocialMediaTypeSocialMediaId", fields: [socialMediaId], references: [id])
+  /// The `url` field is part of the `PersonSocialMedia` model. Stores a link to a person's social media profile, associating it with their contact record.
+  url                             String
+  /// The `username` field is part of the `PersonSocialMedia` model. Stores a link to a person's social media profile, associating it with their contact record.
+  username                        String
+  color                           String?          @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean          @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean          @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean          @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String           @db.Uuid() // Identifier for the client associated.
+  createdBy                       String           @db.Uuid() // User ID of the creator.
+  updatedBy                       String           @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime         @default(now()) // Creation timestamp.
+  updatedAt                       DateTime         @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?          @db.Uuid()
+  workflowInstanceId              String?          @db.Uuid()
+  isSystemTemplate                Boolean          @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Links a person (contact) to a specific marketing list for targeted campaigns and
+/// communications.
+model PersonInMarketingList {
+  id                              String        @id @default(uuid()) @db.Uuid()
+  /// The `person` field is part of the `PersonInMarketingList` model. Links a person (contact) to a specific marketing list for targeted campaigns and communications.
+  personId                        String        @db.Uuid()
+  /// The `person` field is part of the `PersonInMarketingList` model. Links a person (contact) to a specific marketing list for targeted campaigns and communications.
+  person                          Person        @relation("PersonInMarketingListPersonPersonId", fields: [personId], references: [id])
+  /// The `marketingList` field is part of the `PersonInMarketingList` model. Links a person (contact) to a specific marketing list for targeted campaigns and communications.
+  marketingListId                 String        @db.Uuid()
+  /// The `marketingList` field is part of the `PersonInMarketingList` model. Links a person (contact) to a specific marketing list for targeted campaigns and communications.
+  marketingList                   MarketingList @relation("PersonInMarketingListMarketingListMarketingListId", fields: [marketingListId], references: [id])
+  /// The `expiryDate` field is part of the `PersonInMarketingList` model. Links a person (contact) to a specific marketing list for targeted campaigns and communications.
+  expiryDate                      DateTime?     @db.Date
+  color                           String?       @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean       @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean       @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean       @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String        @db.Uuid() // Identifier for the client associated.
+  createdBy                       String        @db.Uuid() // User ID of the creator.
+  updatedBy                       String        @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime      @default(now()) // Creation timestamp.
+  updatedAt                       DateTime      @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?       @db.Uuid()
+  workflowInstanceId              String?       @db.Uuid()
+  isSystemTemplate                Boolean       @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Defines the relationship between two people, such as 'Reports To', 'Colleague',
+/// or 'Spouse'.
+model PersonRelationship {
+  id                                                            String                      @id @default(uuid()) @db.Uuid()
+  /// The `relationship` field is part of the `PersonRelationship` model. Defines the relationship between two people, such as 'Reports To', 'Colleague', or 'Spouse'.
+  relationshipId                                                String                      @db.Uuid()
+  /// The `relationship` field is part of the `PersonRelationship` model. Defines the relationship between two people, such as 'Reports To', 'Colleague', or 'Spouse'.
+  relationship                                                  Relationship                @relation("PersonRelationshipRelationshipRelationshipId", fields: [relationshipId], references: [id])
+  /// The `person` field is part of the `PersonRelationship` model. Defines the relationship between two people, such as 'Reports To', 'Colleague', or 'Spouse'.
+  personId                                                      String                      @db.Uuid()
+  /// The `person` field is part of the `PersonRelationship` model. Defines the relationship between two people, such as 'Reports To', 'Colleague', or 'Spouse'.
+  person                                                        Person                      @relation("PersonRelationshipPersonPersonId", fields: [personId], references: [id])
+  personRelationshipPersonRelationshipHistoryPersonRelationship PersonRelationshipHistory[] @relation("PersonRelationshipHistoryPersonRelationshipPersonRelationshipId")
+  color                                                         String?                     @db.VarChar(40)
+  tags                                                          String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                                              Boolean                     @default(false) // Visibility control.
+  anonymousCanSeeIt                                             Boolean                     @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt                               Boolean                     @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                                        Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                                        Json? // Specific users with visibility access.
+  client                                                        String                      @db.Uuid() // Identifier for the client associated.
+  createdBy                                                     String                      @db.Uuid() // User ID of the creator.
+  updatedBy                                                     String                      @db.Uuid() // User ID of the last updater.
+  createdAt                                                     DateTime                    @default(now()) // Creation timestamp.
+  updatedAt                                                     DateTime                    @updatedAt // Last update timestamp.
+  deleted                                                       DateTime? // Deletion timestamp, if deleted.
+  workflowId                                                    String?                     @db.Uuid()
+  workflowInstanceId                                            String?                     @db.Uuid()
+  isSystemTemplate                                              Boolean                     @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Assigns a user as the owner or manager of a specific sales territory.
+model TerritoryOwner {
+  id                              String     @id @default(uuid()) @db.Uuid()
+  /// The `salesPerson` field is part of the `TerritoryOwner` model. Assigns a user as the owner or manager of a specific sales territory.
+  salesPersonId                   String     @db.Uuid()
+  /// The `territory` field is part of the `TerritoryOwner` model. Assigns a user as the owner or manager of a specific sales territory.
+  territoryId                     String?    @db.Uuid()
+  /// The `territory` field is part of the `TerritoryOwner` model. Assigns a user as the owner or manager of a specific sales territory.
+  territory                       Territory? @relation("TerritoryOwnerTerritoryTerritoryId", fields: [territoryId], references: [id])
+  /// The `expiryDate` field is part of the `TerritoryOwner` model. Assigns a user as the owner or manager of a specific sales territory.
+  expiryDate                      DateTime?  @db.Date
+  color                           String?    @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean    @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean    @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean    @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String     @db.Uuid() // Identifier for the client associated.
+  createdBy                       String     @db.Uuid() // User ID of the creator.
+  updatedBy                       String     @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime   @default(now()) // Creation timestamp.
+  updatedAt                       DateTime   @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?    @db.Uuid()
+  workflowInstanceId              String?    @db.Uuid()
+  isSystemTemplate                Boolean    @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt, salesPersonId])
+}
+
+/// A person who is a contact point within a specific company, linking a person
+/// record to a company record.
+model CompanyContact {
+  id                                                String                  @id @default(uuid()) @db.Uuid()
+  /// The `person` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  personId                                          String                  @db.Uuid()
+  /// The `person` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  person                                            Person                  @relation("CompanyContactPersonPersonId", fields: [personId], references: [id])
+  /// The `company` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  companyId                                         String?                 @db.Uuid()
+  /// The `company` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  company                                           Company?                @relation("CompanyContactCompanyCompanyId", fields: [companyId], references: [id])
+  /// The `workEmail` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  workEmail                                         String?
+  /// The `endDate` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  endDate                                           DateTime?               @db.Date
+  /// The `accounts` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  accounts                                          Boolean?
+  /// The `startDate` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  startDate                                         DateTime?               @db.Date
+  /// The `jobTitle` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  jobTitle                                          String?
+  /// The `workPhone` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  workPhone                                         String?
+  /// The `workMobile` field is part of the `CompanyContact` model. A person who is a contact point within a specific company, linking a person record to a company record.
+  workMobile                                        String?
+  companyContactOpportunityCompanyContact           Opportunity[]           @relation("OpportunityCompanyContactCompanyContactId")
+  companyContactClientCompanyContact                Client[]                @relation("ClientCompanyContactCompanyContactId")
+  companyContactOpportunityInfluencerCompanyContact OpportunityInfluencer[] @relation("OpportunityInfluencerCompanyContactCompanyContactId")
+  color                                             String?                 @db.VarChar(40)
+  tags                                              String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                                  Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt                                 Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt                   Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                            Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                            Json? // Specific users with visibility access.
+  client                                            String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                                         String                  @db.Uuid() // User ID of the creator.
+  updatedBy                                         String                  @db.Uuid() // User ID of the last updater.
+  createdAt                                         DateTime                @default(now()) // Creation timestamp.
+  updatedAt                                         DateTime                @updatedAt // Last update timestamp.
+  deleted                                           DateTime? // Deletion timestamp, if deleted.
+  workflowId                                        String?                 @db.Uuid()
+  workflowInstanceId                                String?                 @db.Uuid()
+  isSystemTemplate                                  Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Records an enquiry or question submitted by a customer or prospect.
+model CustomerEnquiry {
+  id                              String                  @id @default(uuid()) @db.Uuid()
+  /// The `person` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  personId                        String                  @db.Uuid()
+  /// The `person` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  person                          Person                  @relation("CustomerEnquiryPersonPersonId", fields: [personId], references: [id])
+  /// The `firstName` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  firstName                       String?
+  /// The `lastName` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  lastName                        String?
+  /// The `sourceNotes` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  sourceNotes                     String?
+  /// The `status` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  statusId                        String?                 @db.Uuid()
+  /// The `status` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  status                          CustomerEnquiryStatus?  @relation("CustomerEnquiryCustomerEnquiryStatusStatusId", fields: [statusId], references: [id])
+  /// The `message` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  message                         String?
+  /// The `purpose` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  purposeId                       String?                 @db.Uuid()
+  /// The `purpose` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  purpose                         CustomerEnquiryPurpose? @relation("CustomerEnquiryCustomerEnquiryPurposePurposeId", fields: [purposeId], references: [id])
+  /// The `source` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  source                          String?
+  /// The `phone` field is part of the `CustomerEnquiry` model. Records an enquiry or question submitted by a customer or prospect.
+  phone                           String?
+  color                           String?                 @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                       String                  @db.Uuid() // User ID of the creator.
+  updatedBy                       String                  @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime                @default(now()) // Creation timestamp.
+  updatedAt                       DateTime                @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?                 @db.Uuid()
+  workflowInstanceId              String?                 @db.Uuid()
+  isSystemTemplate                Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// A curated list of people or leads to be contacted by phone as part of a specific
+/// campaign or daily workflow.
+model CallList {
+  id                              String           @id @default(uuid()) @db.Uuid()
+  /// The `name` field is part of the `CallList` model. A curated list of people or leads to be contacted by phone as part of a specific campaign or daily workflow.
+  name                            String
+  /// The `callListPipeline` field is part of the `CallList` model. A curated list of people or leads to be contacted by phone as part of a specific campaign or daily workflow.
+  callListPipelineId              String           @db.Uuid()
+  /// The `callListPipeline` field is part of the `CallList` model. A curated list of people or leads to be contacted by phone as part of a specific campaign or daily workflow.
+  callListPipeline                CallListPipeline @relation("CallListCallListPipelineCallListPipelineId", fields: [callListPipelineId], references: [id])
+  /// The `description` field is part of the `CallList` model. A curated list of people or leads to be contacted by phone as part of a specific campaign or daily workflow.
+  description                     String?
+  callListCallScheduleCallList    CallSchedule[]   @relation("CallScheduleCallListCallListId")
+  color                           String?          @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean          @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean          @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean          @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String           @db.Uuid() // Identifier for the client associated.
+  createdBy                       String           @db.Uuid() // User ID of the creator.
+  updatedBy                       String           @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime         @default(now()) // Creation timestamp.
+  updatedAt                       DateTime         @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?          @db.Uuid()
+  workflowInstanceId              String?          @db.Uuid()
+  isSystemTemplate                Boolean          @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Tracks the history of relationships a person has had, including when they
+/// started, ended, or changed.
+model PersonRelationshipHistory {
+  id                              String             @id @default(uuid()) @db.Uuid()
+  /// The `personRelationship` field is part of the `PersonRelationshipHistory` model. Tracks the history of relationships a person has had, including when they started, ended, or changed.
+  personRelationshipId            String             @db.Uuid()
+  /// The `personRelationship` field is part of the `PersonRelationshipHistory` model. Tracks the history of relationships a person has had, including when they started, ended, or changed.
+  personRelationship              PersonRelationship @relation("PersonRelationshipHistoryPersonRelationshipPersonRelationshipId", fields: [personRelationshipId], references: [id])
+  /// The `notes` field is part of the `PersonRelationshipHistory` model. Tracks the history of relationships a person has had, including when they started, ended, or changed.
+  notes                           String
+  color                           String?            @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean            @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean            @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean            @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String             @db.Uuid() // Identifier for the client associated.
+  createdBy                       String             @db.Uuid() // User ID of the creator.
+  updatedBy                       String             @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime           @default(now()) // Creation timestamp.
+  updatedAt                       DateTime           @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?            @db.Uuid()
+  workflowInstanceId              String?            @db.Uuid()
+  isSystemTemplate                Boolean            @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Sets a sales or activity target for a specific salesperson over a defined
+/// period.
+model SalesPersonTarget {
+  id                                         String                @id @default(uuid()) @db.Uuid()
+  /// The `pipeline` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  pipelineId                                 String                @db.Uuid()
+  /// The `pipeline` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  pipeline                                   OpportunityPipeline   @relation("SalesPersonTargetOpportunityPipelinePipelineId", fields: [pipelineId], references: [id])
+  /// The `targetUnit` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  targetUnit                                 TargetFrequency?
+  /// The `target` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  target                                     Int?
+  /// The `notes` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  notes                                      String?
+  /// The `expiryDate` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  expiryDate                                 DateTime?             @db.Date
+  /// The `pipelineStage` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  pipelineStageId                            String                @db.Uuid()
+  /// The `pipelineStage` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  pipelineStage                              PipelineStage         @relation("SalesPersonTargetPipelineStagePipelineStageId", fields: [pipelineStageId], references: [id])
+  /// The `salesPerson` field is part of the `SalesPersonTarget` model. Sets a sales or activity target for a specific salesperson over a defined period.
+  salesPersonId                              String                @db.Uuid()
+  salesPersonTargetTargetActualHistoryTarget TargetActualHistory[] @relation("TargetActualHistorySalesPersonTargetTargetId")
+  color                                      String?               @db.VarChar(40)
+  tags                                       String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                           Boolean               @default(false) // Visibility control.
+  anonymousCanSeeIt                          Boolean               @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt            Boolean               @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                     Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                     Json? // Specific users with visibility access.
+  client                                     String                @db.Uuid() // Identifier for the client associated.
+  createdBy                                  String                @db.Uuid() // User ID of the creator.
+  updatedBy                                  String                @db.Uuid() // User ID of the last updater.
+  createdAt                                  DateTime              @default(now()) // Creation timestamp.
+  updatedAt                                  DateTime              @updatedAt // Last update timestamp.
+  deleted                                    DateTime? // Deletion timestamp, if deleted.
+  workflowId                                 String?               @db.Uuid()
+  workflowInstanceId                         String?               @db.Uuid()
+  isSystemTemplate                           Boolean               @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt, salesPersonId])
+}
+
+/// Represents a potential revenue-generating deal that is being tracked through the
+/// sales pipeline.
+model Opportunity {
+  id                                          String                  @id @default(uuid()) @db.Uuid()
+  /// The `company` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  companyId                                   String?                 @db.Uuid()
+  /// The `company` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  company                                     Company?                @relation("OpportunityCompanyCompanyId", fields: [companyId], references: [id])
+  /// The `person` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  personId                                    String?                 @db.Uuid()
+  /// The `person` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  person                                      Person?                 @relation("OpportunityPersonPersonId", fields: [personId], references: [id])
+  /// The `companyContact` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  companyContactId                            String?                 @db.Uuid()
+  /// The `companyContact` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  companyContact                              CompanyContact?         @relation("OpportunityCompanyContactCompanyContactId", fields: [companyContactId], references: [id])
+  /// The `actualValue` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  actualValue                                 Int?
+  /// The `probability` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  probability                                 Int?
+  /// The `owner` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  ownerId                                     String?                 @db.Uuid()
+  /// The `salesPerson` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  salesPersonId                               String?                 @db.Uuid()
+  /// The `channel` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  channelId                                   String?                 @db.Uuid()
+  /// The `channel` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  channel                                     Channel?                @relation("OpportunityChannelChannelId", fields: [channelId], references: [id])
+  /// The `dataSource` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  dataSource                                  String?
+  /// The `sentiment` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  sentiment                                   CustomerSentiment?
+  /// The `economicBuyerInfluence` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  economicBuyerInfluenceId                    String?                 @db.Uuid()
+  /// The `economicBuyerInfluence` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  economicBuyerInfluence                      CompanySpin?            @relation("OpportunityCompanySpinEconomicBuyerInfluenceId", fields: [economicBuyerInfluenceId], references: [id])
+  /// The `technicalBuyerInfluence` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  technicalBuyerInfluenceId                   String?                 @db.Uuid()
+  /// The `technicalBuyerInfluence` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  technicalBuyerInfluence                     CompanySpin?            @relation("OpportunityCompanySpinTechnicalBuyerInfluenceId", fields: [technicalBuyerInfluenceId], references: [id])
+  /// The `customerPriority` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  customerPriority                            CustomerPriority?
+  /// The `notes` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  notes                                       String?
+  /// The `name` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  name                                        String                  @db.VarChar(50)
+  /// The `description` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  description                                 String?
+  /// The `pipeline` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  pipelineId                                  String?                 @db.Uuid()
+  /// The `pipeline` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  pipeline                                    OpportunityPipeline?    @relation("OpportunityOpportunityPipelinePipelineId", fields: [pipelineId], references: [id])
+  /// The `estimatedValue` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  estimatedValue                              Int?
+  /// The `userBuyerInfluence` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  userBuyerInfluenceId                        String?                 @db.Uuid()
+  /// The `userBuyerInfluence` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  userBuyerInfluence                          CompanySpin?            @relation("OpportunityCompanySpinUserBuyerInfluenceId", fields: [userBuyerInfluenceId], references: [id])
+  /// The `estimatedCloseDate` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  estimatedCloseDate                          DateTime?               @db.Date
+  /// Foreign key to OpportunityCategory for classifying deals by type such as new business, renewal, or upsell.
+  categoryId                                  String?                 @db.Uuid()
+  /// Foreign key to OpportunityCategory for classifying deals by type such as new business, renewal, or upsell.
+  category                                    OpportunityCategory?    @relation("OpportunityOpportunityCategoryCategoryId", fields: [categoryId], references: [id])
+  /// The `status` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  statusId                                    String?                 @db.Uuid()
+  /// The `status` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  status                                      PipelineStage?          @relation("OpportunityPipelineStageStatusId", fields: [statusId], references: [id])
+  /// The `statusAssignedDate` field is part of the `Opportunity` model. Represents a potential revenue-generating deal that is being tracked through the sales pipeline.
+  statusAssignedDate                          DateTime?
+  opportunityClientOpportunity                Client[]                @relation("ClientOpportunityOpportunityId")
+  opportunityOpportunityInfluencerOpportunity OpportunityInfluencer[] @relation("OpportunityInfluencerOpportunityOpportunityId")
+  opportunityOpportunityProductOpportunity    OpportunityProduct[]    @relation("OpportunityProductOpportunityOpportunityId")
+  opportunityOpportunityHistoryOpportunity    OpportunityHistory[]    @relation("OpportunityHistoryOpportunityOpportunityId")
+  opportunityActionPlanOpportunity            ActionPlan[]            @relation("ActionPlanOpportunityOpportunityId")
+  opportunityDataNeededOpportunity            DataNeeded[]            @relation("DataNeededOpportunityOpportunityId")
+  color                                       String?                 @db.VarChar(40)
+  tags                                        String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                            Boolean                 @default(false) // Visibility control.
+  anonymousCanSeeIt                           Boolean                 @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt             Boolean                 @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt                      Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt                      Json? // Specific users with visibility access.
+  client                                      String                  @db.Uuid() // Identifier for the client associated.
+  createdBy                                   String                  @db.Uuid() // User ID of the creator.
+  updatedBy                                   String                  @db.Uuid() // User ID of the last updater.
+  createdAt                                   DateTime                @default(now()) // Creation timestamp.
+  updatedAt                                   DateTime                @updatedAt // Last update timestamp.
+  deleted                                     DateTime? // Deletion timestamp, if deleted.
+  workflowId                                  String?                 @db.Uuid()
+  workflowInstanceId                          String?                 @db.Uuid()
+  isSystemTemplate                            Boolean                 @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt, ownerId, salesPersonId])
+}
+
+/// Schedules and manages planned phone calls with contacts, leads, or customers.
+model CallSchedule {
+  id                                  String                @id @default(uuid()) @db.Uuid()
+  /// The `callListPipelineStage` field is part of the `CallSchedule` model. Schedules and manages planned phone calls with contacts, leads, or customers.
+  callListPipelineStageId             String                @db.Uuid()
+  /// The `callListPipelineStage` field is part of the `CallSchedule` model. Schedules and manages planned phone calls with contacts, leads, or customers.
+  callListPipelineStage               CallListPipelineStage @relation("CallScheduleCallListPipelineStageCallListPipelineStageId", fields: [callListPipelineStageId], references: [id])
+  /// The `scheduleDatetime` field is part of the `CallSchedule` model. Schedules and manages planned phone calls with contacts, leads, or customers.
+  scheduleDatetime                    DateTime
+  /// The `callList` field is part of the `CallSchedule` model. Schedules and manages planned phone calls with contacts, leads, or customers.
+  callListId                          String?               @db.Uuid()
+  /// The `callList` field is part of the `CallSchedule` model. Schedules and manages planned phone calls with contacts, leads, or customers.
+  callList                            CallList?             @relation("CallScheduleCallListCallListId", fields: [callListId], references: [id])
+  /// The `person` field is part of the `CallSchedule` model. Schedules and manages planned phone calls with contacts, leads, or customers.
+  personId                            String                @db.Uuid()
+  /// The `person` field is part of the `CallSchedule` model. Schedules and manages planned phone calls with contacts, leads, or customers.
+  person                              Person                @relation("CallSchedulePersonPersonId", fields: [personId], references: [id])
+  callScheduleCallHistoryCallSchedule CallHistory[]         @relation("CallHistoryCallScheduleCallScheduleId")
+  color                               String?               @db.VarChar(40)
+  tags                                String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                    Boolean               @default(false) // Visibility control.
+  anonymousCanSeeIt                   Boolean               @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt     Boolean               @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt              Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt              Json? // Specific users with visibility access.
+  client                              String                @db.Uuid() // Identifier for the client associated.
+  createdBy                           String                @db.Uuid() // User ID of the creator.
+  updatedBy                           String                @db.Uuid() // User ID of the last updater.
+  createdAt                           DateTime              @default(now()) // Creation timestamp.
+  updatedAt                           DateTime              @updatedAt // Last update timestamp.
+  deleted                             DateTime? // Deletion timestamp, if deleted.
+  workflowId                          String?               @db.Uuid()
+  workflowInstanceId                  String?               @db.Uuid()
+  isSystemTemplate                    Boolean               @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Represents a client or customer, typically an organization or company that you
+/// do business with.
+model Client {
+  id                              String          @id @default(uuid()) @db.Uuid()
+  /// The `opportunity` field is part of the `Client` model. Represents a client or customer, typically an organization or company that you do business with.
+  opportunityId                   String?         @db.Uuid()
+  /// The `opportunity` field is part of the `Client` model. Represents a client or customer, typically an organization or company that you do business with.
+  opportunity                     Opportunity?    @relation("ClientOpportunityOpportunityId", fields: [opportunityId], references: [id])
+  /// The `companyContact` field is part of the `Client` model. Represents a client or customer, typically an organization or company that you do business with.
+  companyContactId                String          @db.Uuid()
+  /// The `companyContact` field is part of the `Client` model. Represents a client or customer, typically an organization or company that you do business with.
+  companyContact                  CompanyContact  @relation("ClientCompanyContactCompanyContactId", fields: [companyContactId], references: [id])
+  /// The `notes` field is part of the `Client` model. Represents a client or customer, typically an organization or company that you do business with.
+  notes                           String?
+  clientClientHistoryClientRef    ClientHistory[] @relation("ClientHistoryClientClientRefId")
+  color                           String?         @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean         @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean         @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean         @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String          @db.Uuid() // Identifier for the client associated.
+  createdBy                       String          @db.Uuid() // User ID of the creator.
+  updatedBy                       String          @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime        @default(now()) // Creation timestamp.
+  updatedAt                       DateTime        @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?         @db.Uuid()
+  workflowInstanceId              String?         @db.Uuid()
+  isSystemTemplate                Boolean         @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Stores historical data of actual performance values against defined targets,
+/// enabling performance tracking over time.
+model TargetActualHistory {
+  id                              String            @id @default(uuid()) @db.Uuid()
+  /// The `actuals` field is part of the `TargetActualHistory` model. Stores historical data of actual performance values against defined targets, enabling performance tracking over time.
+  actuals                         Int
+  /// The `target` field is part of the `TargetActualHistory` model. Stores historical data of actual performance values against defined targets, enabling performance tracking over time.
+  targetId                        String            @db.Uuid()
+  /// The `target` field is part of the `TargetActualHistory` model. Stores historical data of actual performance values against defined targets, enabling performance tracking over time.
+  target                          SalesPersonTarget @relation("TargetActualHistorySalesPersonTargetTargetId", fields: [targetId], references: [id])
+  color                           String?           @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean           @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean           @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean           @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String            @db.Uuid() // Identifier for the client associated.
+  createdBy                       String            @db.Uuid() // User ID of the creator.
+  updatedBy                       String            @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime          @default(now()) // Creation timestamp.
+  updatedAt                       DateTime          @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?           @db.Uuid()
+  workflowInstanceId              String?           @db.Uuid()
+  isSystemTemplate                Boolean           @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Identifies and tracks individuals who have an influence on a sales opportunity,
+/// even if they are not the primary decision-maker.
+model OpportunityInfluencer {
+  id                              String         @id @default(uuid()) @db.Uuid()
+  /// The `role` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  role                            String
+  /// The `companyContact` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  companyContactId                String         @db.Uuid()
+  /// The `companyContact` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  companyContact                  CompanyContact @relation("OpportunityInfluencerCompanyContactCompanyContactId", fields: [companyContactId], references: [id])
+  /// The `opportunity` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  opportunityId                   String?        @db.Uuid()
+  /// The `opportunity` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  opportunity                     Opportunity?   @relation("OpportunityInfluencerOpportunityOpportunityId", fields: [opportunityId], references: [id])
+  /// The `desireForCompany` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  desireForCompany                String?
+  /// The `desireForSelf` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  desireForSelf                   String?
+  /// The `rating` field is part of the `OpportunityInfluencer` model. Identifies and tracks individuals who have an influence on a sales opportunity, even if they are not the primary decision-maker.
+  rating                          Int?
+  color                           String?        @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean        @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean        @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean        @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String         @db.Uuid() // Identifier for the client associated.
+  createdBy                       String         @db.Uuid() // User ID of the creator.
+  updatedBy                       String         @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime       @default(now()) // Creation timestamp.
+  updatedAt                       DateTime       @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?        @db.Uuid()
+  workflowInstanceId              String?        @db.Uuid()
+  isSystemTemplate                Boolean        @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Links a specific product or service to an opportunity, including details like
+/// quantity, price, and total amount.
+model OpportunityProduct {
+  id                              String      @id @default(uuid()) @db.Uuid()
+  /// The `opportunity` field is part of the `OpportunityProduct` model. Links a specific product or service to an opportunity, including details like quantity, price, and total amount.
+  opportunityId                   String      @db.Uuid()
+  /// The `opportunity` field is part of the `OpportunityProduct` model. Links a specific product or service to an opportunity, including details like quantity, price, and total amount.
+  opportunity                     Opportunity @relation("OpportunityProductOpportunityOpportunityId", fields: [opportunityId], references: [id])
+  /// The `amount` field is part of the `OpportunityProduct` model. Links a specific product or service to an opportunity, including details like quantity, price, and total amount.
+  amount                          Int?
+  /// The `estimatedValue` field is part of the `OpportunityProduct` model. Links a specific product or service to an opportunity, including details like quantity, price, and total amount.
+  estimatedValue                  Int?
+  /// The &#96;productVariant&#96; field is part of the &#96;OpportunityProduct&#96; model. Links a specific product or service to an opportunity, including details like quantity, price, and total amount. externalRef
+  productVariantId                String      @db.Uuid()
+  color                           String?     @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean     @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean     @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean     @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String      @db.Uuid() // Identifier for the client associated.
+  createdBy                       String      @db.Uuid() // User ID of the creator.
+  updatedBy                       String      @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime    @default(now()) // Creation timestamp.
+  updatedAt                       DateTime    @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?     @db.Uuid()
+  workflowInstanceId              String?     @db.Uuid()
+  isSystemTemplate                Boolean     @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt, productVariantId])
+}
+
+/// A historical log of all changes made to an opportunity, such as stage changes,
+/// value adjustments, or closing date updates.
+model OpportunityHistory {
+  id                              String       @id @default(uuid()) @db.Uuid()
+  /// The `opportunity` field is part of the `OpportunityHistory` model. A historical log of all changes made to an opportunity, such as stage changes, value adjustments, or closing date updates.
+  opportunityId                   String?      @db.Uuid()
+  /// The `opportunity` field is part of the `OpportunityHistory` model. A historical log of all changes made to an opportunity, such as stage changes, value adjustments, or closing date updates.
+  opportunity                     Opportunity? @relation("OpportunityHistoryOpportunityOpportunityId", fields: [opportunityId], references: [id])
+  /// The `notes` field is part of the `OpportunityHistory` model. A historical log of all changes made to an opportunity, such as stage changes, value adjustments, or closing date updates.
+  notes                           String
+  /// The `url` field is part of the `OpportunityHistory` model. A historical log of all changes made to an opportunity, such as stage changes, value adjustments, or closing date updates.
+  url                             String?
+  color                           String?      @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean      @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean      @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean      @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String       @db.Uuid() // Identifier for the client associated.
+  createdBy                       String       @db.Uuid() // User ID of the creator.
+  updatedBy                       String       @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime     @default(now()) // Creation timestamp.
+  updatedAt                       DateTime     @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?      @db.Uuid()
+  workflowInstanceId              String?      @db.Uuid()
+  isSystemTemplate                Boolean      @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// A predefined set or template of actions designed to achieve a specific
+/// objective, such as onboarding a new client.
+model ActionPlan {
+  id                              String      @id @default(uuid()) @db.Uuid()
+  /// The `what` field is part of the `ActionPlan` model. A predefined set or template of actions designed to achieve a specific objective, such as onboarding a new client.
+  what                            String
+  /// The `opportunity` field is part of the `ActionPlan` model. A predefined set or template of actions designed to achieve a specific objective, such as onboarding a new client.
+  opportunityId                   String      @db.Uuid()
+  /// The `opportunity` field is part of the `ActionPlan` model. A predefined set or template of actions designed to achieve a specific objective, such as onboarding a new client.
+  opportunity                     Opportunity @relation("ActionPlanOpportunityOpportunityId", fields: [opportunityId], references: [id])
+  /// The `who` field is part of the `ActionPlan` model. A predefined set or template of actions designed to achieve a specific objective, such as onboarding a new client.
+  who                             String?
+  /// The `when` field is part of the `ActionPlan` model. A predefined set or template of actions designed to achieve a specific objective, such as onboarding a new client.
+  when                            DateTime?   @db.Date
+  color                           String?     @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean     @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean     @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean     @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String      @db.Uuid() // Identifier for the client associated.
+  createdBy                       String      @db.Uuid() // User ID of the creator.
+  updatedBy                       String      @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime    @default(now()) // Creation timestamp.
+  updatedAt                       DateTime    @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?     @db.Uuid()
+  workflowInstanceId              String?     @db.Uuid()
+  isSystemTemplate                Boolean     @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Flags records or fields where specific information is required but is currently
+/// missing.
+model DataNeeded {
+  id                              String       @id @default(uuid()) @db.Uuid()
+  /// The `whoFrom` field is part of the `DataNeeded` model. Flags records or fields where specific information is required but is currently missing.
+  whoFrom                         String
+  /// The `opportunity` field is part of the `DataNeeded` model. Flags records or fields where specific information is required but is currently missing.
+  opportunityId                   String?      @db.Uuid()
+  /// The `opportunity` field is part of the `DataNeeded` model. Flags records or fields where specific information is required but is currently missing.
+  opportunity                     Opportunity? @relation("DataNeededOpportunityOpportunityId", fields: [opportunityId], references: [id])
+  /// The `infoNeeded` field is part of the `DataNeeded` model. Flags records or fields where specific information is required but is currently missing.
+  infoNeeded                      String
+  /// The `notes` field is part of the `DataNeeded` model. Flags records or fields where specific information is required but is currently missing.
+  notes                           String?
+  color                           String?      @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean      @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean      @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean      @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String       @db.Uuid() // Identifier for the client associated.
+  createdBy                       String       @db.Uuid() // User ID of the creator.
+  updatedBy                       String       @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime     @default(now()) // Creation timestamp.
+  updatedAt                       DateTime     @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?      @db.Uuid()
+  workflowInstanceId              String?      @db.Uuid()
+  isSystemTemplate                Boolean      @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// A historical log of all phone calls made or received, including details like
+/// duration and outcome.
+model CallHistory {
+  id                              String                @id @default(uuid()) @db.Uuid()
+  /// The `outcome` field is part of the `CallHistory` model. A historical log of all phone calls made or received, including details like duration and outcome.
+  outcome                         String
+  /// The `callListPipelineStage` field is part of the `CallHistory` model. A historical log of all phone calls made or received, including details like duration and outcome.
+  callListPipelineStageId         String                @db.Uuid()
+  /// The `callListPipelineStage` field is part of the `CallHistory` model. A historical log of all phone calls made or received, including details like duration and outcome.
+  callListPipelineStage           CallListPipelineStage @relation("CallHistoryCallListPipelineStageCallListPipelineStageId", fields: [callListPipelineStageId], references: [id])
+  /// The `callSchedule` field is part of the `CallHistory` model. A historical log of all phone calls made or received, including details like duration and outcome.
+  callScheduleId                  String?               @db.Uuid()
+  /// The `callSchedule` field is part of the `CallHistory` model. A historical log of all phone calls made or received, including details like duration and outcome.
+  callSchedule                    CallSchedule?         @relation("CallHistoryCallScheduleCallScheduleId", fields: [callScheduleId], references: [id])
+  color                           String?               @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean               @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean               @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean               @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String                @db.Uuid() // Identifier for the client associated.
+  createdBy                       String                @db.Uuid() // User ID of the creator.
+  updatedBy                       String                @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime              @default(now()) // Creation timestamp.
+  updatedAt                       DateTime              @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?               @db.Uuid()
+  workflowInstanceId              String?               @db.Uuid()
+  isSystemTemplate                Boolean               @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// A log of all significant changes and interactions associated with a client
+/// account, providing a complete audit trail.
+model ClientHistory {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  /// The `clientRef` field is part of the `ClientHistory` model. A log of all significant changes and interactions associated with a client account, providing a complete audit trail.
+  clientRefId                     String?   @db.Uuid()
+  /// The `clientRef` field is part of the `ClientHistory` model. A log of all significant changes and interactions associated with a client account, providing a complete audit trail.
+  clientRef                       Client?   @relation("ClientHistoryClientClientRefId", fields: [clientRefId], references: [id])
+  /// The `url` field is part of the `ClientHistory` model. A log of all significant changes and interactions associated with a client account, providing a complete audit trail.
+  url                             String
+  color                           String?   @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?   @db.Uuid()
+  workflowInstanceId              String?   @db.Uuid()
+  isSystemTemplate                Boolean   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}
+
+/// Manages and stores data submitted by users through an online signup form.
+model OnlineSignup {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  /// The `source` field is part of the `OnlineSignup` model. Manages and stores data submitted by users through an online signup form.
+  source                          String?
+  /// The `fields` field is part of the `OnlineSignup` model. Manages and stores data submitted by users through an online signup form.
+  fields                          String?
+  /// The `owner` field is part of the `OnlineSignup` model. Manages and stores data submitted by users through an online signup form.
+  owner                           String    @db.VarChar(200)
+  /// The `emailconfirmed` field is part of the `OnlineSignup` model. Manages and stores data submitted by users through an online signup form.
+  emailconfirmed                  Boolean?
+  color                           String?   @db.VarChar(40)
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  workflowId                      String?   @db.Uuid()
+  workflowInstanceId              String?   @db.Uuid()
+  isSystemTemplate                Boolean   @default(false)
+
+  @@index([everyoneCanSeeIt, anonymousCanSeeIt, everyoneInObjectCompanyCanSeeIt, onlyTheseRolesCanSeeIt, onlyTheseUsersCanSeeIt, client, createdBy, isSystemTemplate, deleted, createdAt, updatedAt])
+}

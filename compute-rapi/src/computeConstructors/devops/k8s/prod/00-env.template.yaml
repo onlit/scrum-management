@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{MICROSERVICE_SLUG}}-configmap
+  namespace: prod
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+data:
+  ENVIRONMENT: prod
+  NODE_ENV: production
+  APP_HOST: '0.0.0.0'
+  MS_NAME: {{MICROSERVICE_SLUG}}
+  DATABASE_HOST: {{MICROSERVICE_SLUG}}-db-svc
+  DATABASE_PORT: '5432'
+  PSQL_HOST: {{MICROSERVICE_SLUG}}-pgbouncer-svc
+  PSQL_PORT: '5432'
+  POSTGRES_DB: {{MICROSERVICE_SLUG}}
+  REDIS_HOST: {{MICROSERVICE_SLUG}}-redis
+  REDIS_PORT: '6379'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{MICROSERVICE_SLUG}}-secret
+  namespace: prod
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+type: Opaque
+data:
+  POSTGRES_USER: {{MICROSERVICE_POSTGRES_USER}}
+  POSTGRES_PASSWORD: {{MICROSERVICE_POSTGRES_PASSWORD}}
+  DATABASE_URL: {{MICROSERVICE_POSTGRES_DATABASE_URL}}
+  PGBOUNCER_URL: {{MICROSERVICE_PGBOUNCER_DATABASE_URL}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{MICROSERVICE_SLUG}}-pgbouncer-configmap
+  namespace: prod
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+data:
+  pgbouncer.ini: |
+    [databases]
+    * = host={{MICROSERVICE_SLUG}}-db-svc port=5432
+
+    [pgbouncer]
+    listen_addr = 0.0.0.0
+    listen_port = 5432
+
+    # Pooling mode
+    pool_mode = transaction
+
+    # Connection limits
+    max_client_conn = 10000
+    max_db_connections = 107
+    default_pool_size = 77
+
+    # Timeouts
+    server_idle_timeout = 60
+
+    # Authentication
+    auth_type = md5
+    auth_file = /etc/pgbouncer/userlist.txt
+
+    log_connections = 1
+    log_disconnections = 1
+    log_pooler_errors = 1
+
+    max_prepared_statements = 1000
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{MICROSERVICE_SLUG}}-pgbouncer-secret
+  namespace: prod
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+type: Opaque
+data:
+  DB_USER: {{MICROSERVICE_POSTGRES_USER}}
+  DB_PASSWORD: {{MICROSERVICE_POSTGRES_PASSWORD}}
+  userlist.txt: InVfcHVsbHN0cmVhbSIgIm1kNTVhZmE4YTdmMjgyZmNjYzFhYWFlYzUwODVlMWE0NGZmIgo=
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{MICROSERVICE_SLUG}}-redis-config
+  namespace: prod
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+data:
+  redis.conf: |
+    port 6379
+    appendonly yes
+    appendfsync everysec
+    save 900 1
+    save 300 10
+    save 60 10000
+    dir /data
+
+    # Memory management configuration
+    maxmemory 200mb
+    maxmemory-policy noeviction
+    activedefrag yes
+    active-defrag-threshold-lower 10
+    active-defrag-threshold-upper 30

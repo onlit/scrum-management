@@ -1,0 +1,33 @@
+image: alpine:latest
+
+stages:
+  - deploy
+
+deploy:
+  stage: deploy
+  tags:
+    - k8s
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"'
+  variables:
+    DESTINATION: "/mnt/synology-k8s/config/microservices/{{MICROSERVICE_SLUG}}-k8s/k8s"
+  before_script:
+    - apk add --no-cache openssh-client rsync
+    - chmod 600 "$PRIVATE_KEY"
+    - mkdir -p ~/.ssh
+    - ssh-keyscan -p "$SERVER_PORT" "$SERVER_IP" >> ~/.ssh/known_hosts
+  script:
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "main" ]; then
+        CONF_FOLDER="prod"
+      else
+        CONF_FOLDER="dev"
+      fi
+    - echo "Ensuring base destination directory '$DESTINATION' exists on remote server..."
+    - ssh -p "$SERVER_PORT" -i "$PRIVATE_KEY" "$SERVER_USER@$SERVER_IP" "mkdir -p $DESTINATION"
+
+    - echo "Syncing files to remote server (deleting old files)..."
+    - rsync -avz --delete -e "ssh -p $SERVER_PORT -i $PRIVATE_KEY" ./k8s/ "$SERVER_USER@$SERVER_IP:$DESTINATION"
+
+    - echo "Executing remote deployment script..."
+    - ssh -p "$SERVER_PORT" -i "$PRIVATE_KEY" "$SERVER_USER@$SERVER_IP" "DESTINATION=$DESTINATION CONF_FOLDER=$CONF_FOLDER bash -s" < ./deploy.sh

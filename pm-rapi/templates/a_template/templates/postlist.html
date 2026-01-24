@@ -1,0 +1,4 @@
+{% for post in object_list %}
+<a href="{{ post.get_absolute_url }}">{{ post.title }}</a>
+<hr>
+{% endfor %}

@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS idx_customer_enquiry_client_deleted_person_message ON "CustomerEnquiry" ("client", "deleted", "personId", lower(coalesce("message", '')));
+CREATE INDEX IF NOT EXISTS idx_customer_enquiry_visibility_created_updated ON "CustomerEnquiry" ("everyoneCanSeeIt", "anonymousCanSeeIt", "everyoneInObjectCompanyCanSeeIt", "client", "createdBy", "isSystemTemplate", "deleted", "createdAt", "updatedAt");

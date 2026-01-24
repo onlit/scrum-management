@@ -1,0 +1,15 @@
+{
+  "model": "Role",
+  "records": [
+    "448fbb89-bc97-449d-9a06-f19931542408",
+    "8e0456a1-543c-4dd1-ae3b-ba35a11fa248",
+    "228348f5-c8c6-46a8-90de-010771aece19",
+    "d29f7b31-556e-4497-8efa-b22c9309dde2"
+  ],
+  "fields": {
+    "name": "- Role #1 Updated -3 -4 ",
+    "description": "- Role #1 description Updated -3 -4"
+  },
+  "action": "Delete",
+  "lookup_field": "id"
+}

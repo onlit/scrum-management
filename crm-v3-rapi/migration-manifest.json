@@ -1,0 +1,1428 @@
+{
+  "version": "1.0.0",
+  "microserviceId": "c12853de-3ce0-4aa8-9eed-9437f074db8e",
+  "microserviceName": "CRM V3",
+  "currentGeneration": {
+    "generatedAt": "2026-01-21T12:51:54.814Z",
+    "schemaChecksum": "sha256:3458ce5c5546917987737ac7ee69e747de991598e05249fec0720cf7b019421d",
+    "generatedBy": "775e7d60-cea0-4640-8d21-2127059b60ac"
+  },
+  "models": {
+    "Person": {
+      "checksum": "sha256:c96a88500f35e2fae02175690cbeeb8f9e5bfe3ccf6e209ba0afc0d132445ce6",
+      "fields": {
+        "firstName": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "hasWhatsapp": {
+          "dataType": "Boolean",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "middleName": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "preferredName": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "username": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "homePhone": {
+          "dataType": "Phone",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "avatar": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "address1": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "address2": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "dob": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "personalMobile": {
+          "dataType": "Phone",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "zip": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "state": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "parent": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "companyOwner": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "source": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "sourceNotes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "owner": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "lastName": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "email": {
+          "dataType": "Email",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "status": {
+          "dataType": "Enum",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "country": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "user": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "city": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        }
+      }
+    },
+    "OpportunityPipeline": {
+      "checksum": "sha256:3c4f40ba3775e2b1cc9f4b1605e73b2c40112fd17e97f84549135be0a1765ea7",
+      "fields": {
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "Relationship": {
+      "checksum": "sha256:5c5bc15bb1f02c1c9aab7f005a4971f29ee0882370043fb530582bf3e19667bf",
+      "fields": {
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "PersonSocialMedia": {
+      "checksum": "sha256:77592fbbd98a67b3632eae144860ef6f94c3888a4e9efe0ed7ca20cea3be4c89",
+      "fields": {
+        "person": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "socialMedia": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "url": {
+          "dataType": "URL",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "username": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "ProspectCategory": {
+      "checksum": "sha256:8cf437ae8693ff5c09b1dcd7b4a9620c6506ca9b0023a3c682be3fbf88b907c3",
+      "fields": {
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "Prospect": {
+      "checksum": "sha256:01de9150f6d234c3af1ef758e9c0eb0b5bb6533693657ca7e3a13ee1b9c0c641",
+      "fields": {
+        "disqualificationReason": {
+          "dataType": "Enum",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "sourceCampaign": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "interestSummary": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "owner": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "category": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "person": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "qualificationScore": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "temperature": {
+          "dataType": "Enum",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "prospectPipeline": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "status": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        }
+      }
+    },
+    "PersonRelationship": {
+      "checksum": "sha256:0945802bde3b73de52000d1f61831789bd7f49ead228735b6773de7c8f14f39d",
+      "fields": {
+        "relationship": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "person": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "PersonRelationshipHistory": {
+      "checksum": "sha256:1525c03b87cdeee709d394f7274b266131c26e34776c8026205133318aac64ca",
+      "fields": {
+        "personRelationship": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CompanyContact": {
+      "checksum": "sha256:fd41d09edf34cf6a7f7123a206bc160043ecc24ffa253be44cdeb3578c8a2958",
+      "fields": {
+        "person": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "company": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "workEmail": {
+          "dataType": "Email",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "endDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "accounts": {
+          "dataType": "Boolean",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "startDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "jobTitle": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "workPhone": {
+          "dataType": "Phone",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "workMobile": {
+          "dataType": "Phone",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "AccountManagerInCompany": {
+      "checksum": "sha256:0680537ff7a73dd41446eb6f1296a1a6893af9a3e884d32318b1b1888ec6cec3",
+      "fields": {
+        "company": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "expiryDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "accountManager": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "TerritoryOwner": {
+      "checksum": "sha256:fa44064092864cbf2727a81284a7b195a940ffc94f4c933e0cf06ecc97a26f92",
+      "fields": {
+        "salesPerson": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "territory": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "expiryDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "SalesPersonTarget": {
+      "checksum": "sha256:d098eafc82f5550a26884f879b8e4d26f293f624344697b2fceb9e47b83d3bc5",
+      "fields": {
+        "pipeline": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "targetUnit": {
+          "dataType": "Enum",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "target": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "expiryDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "pipelineStage": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "salesPerson": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "CustomerEnquiryPurpose": {
+      "checksum": "sha256:d76fa416168bcb50ceac4660ab1b43b6f663b6f5f3bb876d9c70af6dd3b4d49e",
+      "fields": {
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CustomerEnquiry": {
+      "checksum": "sha256:333c29cd997ec7f5d3ffbcebe2a29d61d1f27443fc40cc8950ba57dd58c8ab9b",
+      "fields": {
+        "person": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "firstName": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "lastName": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "sourceNotes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "status": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "message": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "purpose": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "source": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "phone": {
+          "dataType": "Phone",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "Client": {
+      "checksum": "sha256:8777392f83f64ca8fd73b859754560c747a56237276082bfc6dfa5b7a09f99cd",
+      "fields": {
+        "opportunity": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "companyContact": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "ClientHistory": {
+      "checksum": "sha256:4885cb5233f39e110e4036273d09341130484e9d68195ec9344f41d8bee74008",
+      "fields": {
+        "clientRef": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "url": {
+          "dataType": "URL",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "OpportunityInfluencer": {
+      "checksum": "sha256:7e8f5ba97166a2405a3c22c8a57160f09c40ae558edf50255e9c8ae3d236a319",
+      "fields": {
+        "role": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "companyContact": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "opportunity": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "desireForCompany": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "desireForSelf": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "rating": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "SocialMediaType": {
+      "checksum": "sha256:b8074061ef6682b03ac67fed11eaf193133c3d365fc57ac8c960200be855ec0a",
+      "fields": {
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CompanySocialMedia": {
+      "checksum": "sha256:c0681e2cf1d0de31a125c7da6b7a9b3455a66245abbc1e6fae9770cf285672cd",
+      "fields": {
+        "url": {
+          "dataType": "URL",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "company": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "socialMedia": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        }
+      }
+    },
+    "ActionPlan": {
+      "checksum": "sha256:5e37c46359ad7451535d6b5359af1b83e8dbf5a7889a7de314fb433b321527fd",
+      "fields": {
+        "what": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "opportunity": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "who": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "when": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "DataNeeded": {
+      "checksum": "sha256:051c0f0731fc7db33e60a6f746762b8176a72f39dde61c578153af82f9cce333",
+      "fields": {
+        "whoFrom": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "opportunity": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "infoNeeded": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "PersonHistory": {
+      "checksum": "sha256:96430315e576face67add6204fa3b0201b92cf2e38d4ddc39fe4ba05a68a89e7",
+      "fields": {
+        "notes": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "history": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "person": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "CallList": {
+      "checksum": "sha256:3f38ff74d37d9e038ab11bef74e1b0788d363ca4737500048a64a6b0c153c156",
+      "fields": {
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "callListPipeline": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CallListPipelineStage": {
+      "checksum": "sha256:1d3ac59a32323dc25677ac6b7b915da18ab7f4a5ede23224e77b49c8b81bcc67",
+      "fields": {
+        "order": {
+          "dataType": "Decimal",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "rottingDays": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "callListPipeline": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        }
+      }
+    },
+    "CallSchedule": {
+      "checksum": "sha256:bf2e1d5240aa83a33b5dd2545f95dd12aae2a3080f18a5dc3b69d05480619ab2",
+      "fields": {
+        "callListPipelineStage": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "scheduleDatetime": {
+          "dataType": "DateTime",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "callList": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "person": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "Company": {
+      "checksum": "sha256:e3711746c7146b80356123d1f09290fde71b89802748f5862d71c5b3334ed4a0",
+      "fields": {
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "email": {
+          "dataType": "Email",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "fax": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "staffUrl": {
+          "dataType": "URL",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "contactUrl": {
+          "dataType": "URL",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "address1": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "address2": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "state": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "zip": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "size": {
+          "dataType": "Enum",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "industry": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "keywords": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "branchOf": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "owner": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "betaPartners": {
+          "dataType": "Boolean",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "website": {
+          "dataType": "URL",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "newsUrl": {
+          "dataType": "URL",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "phone": {
+          "dataType": "Phone",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "country": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "city": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "companyIntelligence": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CompanyHistory": {
+      "checksum": "sha256:8d30d425e3155eb896d4bf4b7e4422162a664e2157ec08e14c93830bbfc307de",
+      "fields": {
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "history": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "company": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "CompanyInTerritory": {
+      "checksum": "sha256:40e4ef985dab48d0bd122dde89dd75e9a7199878f025cbc4981fd65afbf783b6",
+      "fields": {
+        "company": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "territory": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "expiryDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "TargetActualHistory": {
+      "checksum": "sha256:097e633573722407aff08fa9c40f04db0e5b90a40939844c252ca9b4af05445d",
+      "fields": {
+        "actuals": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "target": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "PersonInMarketingList": {
+      "checksum": "sha256:f40f32a8910209b38638b9bc27ec397f47fda7167f58278af3ed27537f807f14",
+      "fields": {
+        "person": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "marketingList": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "expiryDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "OnlineSignup": {
+      "checksum": "sha256:17ea14f8c00abba5b0001d8be46a72dbf5148a2fa80ddc74d8d0ea9258ce1c58",
+      "fields": {
+        "source": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "fields": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "owner": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "emailconfirmed": {
+          "dataType": "Boolean",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CallListPipeline": {
+      "checksum": "sha256:7c4e8a8b82a2e94bb4ab8542a84f17fd53bd5c33b03198ebcf5d8f10be86d6b5",
+      "fields": {
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "OpportunityProduct": {
+      "checksum": "sha256:febc5131e48be6eacf8331b465a41a2ac68fd632050845af17860d214b88e785",
+      "fields": {
+        "opportunity": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "amount": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "estimatedValue": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "productVariant": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "CallHistory": {
+      "checksum": "sha256:e1b30559f7588ff6456dcc5c8ccf7ed60e41524c243a5b8deb7f784d2c6c9d75",
+      "fields": {
+        "outcome": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "callListPipelineStage": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "callSchedule": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        }
+      }
+    },
+    "OpportunityHistory": {
+      "checksum": "sha256:1aa700639913ef617285d6ab8e584b46edc00f18b2c1a070df03900fa33fd303",
+      "fields": {
+        "opportunity": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "url": {
+          "dataType": "URL",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CompanySpin": {
+      "checksum": "sha256:cddb643c5a2b2a40cfcff7ea90159b47552e962a6ba9da6e4e0e4b55b2381174",
+      "fields": {
+        "situation": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "implication": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "company": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "need": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "buyerInfluence": {
+          "dataType": "Enum",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "problem": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "Opportunity": {
+      "checksum": "sha256:0182ad6fd2498bc6210f2654d2760a170282618610fc44d8cbf697ce312b20c2",
+      "fields": {
+        "company": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "person": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "companyContact": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "actualValue": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "probability": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "owner": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "salesPerson": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "channel": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "dataSource": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "sentiment": {
+          "dataType": "Enum",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "economicBuyerInfluence": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "technicalBuyerInfluence": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "customerPriority": {
+          "dataType": "Enum",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "notes": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "pipeline": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "estimatedValue": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "userBuyerInfluence": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "estimatedCloseDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "category": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "status": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "statusAssignedDate": {
+          "dataType": "DateTime",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "PipelineStage": {
+      "checksum": "sha256:7eaf27a12776ce51e75196ebd4751bd4b8333a5c2a600d9c0f5da973ddb20f4a",
+      "fields": {
+        "stage": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "conversion": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "confidence": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "rottingDays": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "pipeline": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "parentPipelineStage": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "immediateNextAction": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "order": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "Territory": {
+      "checksum": "sha256:999d5e0d85e5fa2cdffe3006b97c74c6b08d0e28bb6818fdf211ad8870e36f2a",
+      "fields": {
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "expiryDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "Channel": {
+      "checksum": "sha256:31b703f3cd396d00f26936b113adb346c0f8fe58d56178ecb43777d1cef72498",
+      "fields": {
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "CustomerEnquiryStatus": {
+      "checksum": "sha256:13ab5d6d5da829b7ec021c6f388f5a485a0ebdcb884a199b45b28bc42eedae17",
+      "fields": {
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        }
+      }
+    },
+    "ProspectPipeline": {
+      "checksum": "sha256:eef9429db1e374f4b1d15497afd833f2519d82c3d1e96e2c9df79461aab4b5bc",
+      "fields": {
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "ProspectProduct": {
+      "checksum": "sha256:82324fe21d184981154802e31b9661c68d8bcb9238771b082bc5bc9d39ef71fc",
+      "fields": {
+        "amount": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "estimatedValue": {
+          "dataType": "Int",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "productVariant": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        },
+        "prospect": {
+          "dataType": "UUID",
+          "isOptional": false,
+          "isForeignKey": true
+        }
+      }
+    },
+    "OpportunityCategory": {
+      "checksum": "sha256:45edfbd540067510bbeba504e00610cbe1247b127ad2de6c48ab8f1469ca893f",
+      "fields": {
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    },
+    "ProspectPipelineStage": {
+      "checksum": "sha256:090260a2447c884697d07168c963aea189562896658564041ca3962f7e29aae4",
+      "fields": {
+        "order": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "immediateNextAction": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "confidence": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "rottingDays": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "conversion": {
+          "dataType": "Int",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "stage": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "parentPipelineStage": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        },
+        "pipeline": {
+          "dataType": "UUID",
+          "isOptional": true,
+          "isForeignKey": true
+        }
+      }
+    },
+    "MarketingList": {
+      "checksum": "sha256:d17e1c0e8742737ed50222dd1cc8383793e2b764950e8bd25534595ecadbecdc",
+      "fields": {
+        "description": {
+          "dataType": "String",
+          "isOptional": true,
+          "isForeignKey": false
+        },
+        "name": {
+          "dataType": "String",
+          "isOptional": false,
+          "isForeignKey": false
+        },
+        "expiryDate": {
+          "dataType": "Date",
+          "isOptional": true,
+          "isForeignKey": false
+        }
+      }
+    }
+  },
+  "autoFixesApplied": []
+}

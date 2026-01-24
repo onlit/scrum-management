@@ -1,0 +1,69 @@
+# ---- Build Stage ----
+# Use a specific Node.js Alpine image as a builder
+FROM node:22.16.0-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS build
+
+# Set the working directory in the build stage
+WORKDIR /usr/src/app
+
+# Install essential runtime utilities
+RUN apk add --no-cache ca-certificates openssl
+
+# Copy package manifest and lock file to leverage Docker cache
+COPY package.json yarn.lock* ./
+
+# Install all dependencies
+RUN yarn install --frozen-lockfile --production && yarn cache clean
+
+# Copy the rest of the application source code
+COPY . .
+
+# Generate Prisma client based on the schema
+RUN yarn prisma generate
+
+# Copy the entrypoint script into the build stage
+COPY ./entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# Make the entrypoint script executable
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# ---- Final Stage ----
+# Use the same specific Node.js Alpine image for the final, lean image
+FROM node:22.16.0-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e
+
+# Install essential runtime utilities:
+# dumb-init: PID 1 process manager for proper signal handling.
+# netcat-openbsd: For network connectivity checks (e.g., waiting for DB).
+# ca-certificates: For HTTPS/TLS connections from Node.js.
+RUN apk add --no-cache dumb-init netcat-openbsd ca-certificates openssl
+
+# Set environment variables for the application
+ENV NODE_ENV=production
+ENV LANG=C.UTF-8
+ENV PORT=8000
+
+# Create a non-root user and group for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -u 1001 -S nodejs -G nodejs
+
+# Set the working directory for the application
+WORKDIR /usr/src/app
+
+# Switch to the non-root user
+USER nodejs
+
+# Copy necessary artifacts from the build stage with correct ownership
+COPY --chown=nodejs:nodejs --from=build /usr/src/app/node_modules ./node_modules
+COPY --chown=nodejs:nodejs --from=build /usr/src/app/package.json ./package.json
+COPY --chown=nodejs:nodejs --from=build /usr/src/app/yarn.lock* ./
+COPY --chown=nodejs:nodejs --from=build /usr/src/app/prisma ./prisma
+COPY --chown=nodejs:nodejs --from=build /usr/src/app/src ./src
+
+# Copy the executable entrypoint script from the build stage
+COPY --chown=nodejs:nodejs --from=build /usr/local/bin/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# Document the port the application will listen on (uses the PORT ENV variable)
+EXPOSE ${PORT}
+
+# Set the entrypoint script to run when the container starts
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["node", "src/server.js"]

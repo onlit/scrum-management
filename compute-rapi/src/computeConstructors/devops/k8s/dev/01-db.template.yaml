@@ -1,0 +1,154 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{MICROSERVICE_SLUG}}-db-sts
+  namespace: dev
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+spec:
+  selector:
+    matchLabels:
+      name: {{MICROSERVICE_SLUG}}-db
+  serviceName: "{{MICROSERVICE_SLUG}}-db-svc"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: {{MICROSERVICE_SLUG}}-db
+    spec:
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        performance: fast
+      securityContext:
+       runAsUser: 70
+       runAsGroup: 70
+       runAsNonRoot: true
+       fsGroup: 70
+      containers:
+      - name: {{MICROSERVICE_SLUG}}-db
+        image: registry.pullstream.com/pullstream/microservices/devops/db/postgres/web:dev-amd64
+        imagePullPolicy: Always
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{MICROSERVICE_SLUG}}-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{MICROSERVICE_SLUG}}-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: {{MICROSERVICE_SLUG}}-configmap
+              key: POSTGRES_DB
+        envFrom:
+          - secretRef:
+              name: {{MICROSERVICE_SLUG}}-secret
+          - configMapRef:
+              name: {{MICROSERVICE_SLUG}}-configmap
+        ports:
+        - containerPort: 5432
+          name: db
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - "ALL"
+        lifecycle:
+          preStop:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - sleep 15
+        startupProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432'
+          failureThreshold: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432'
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432'
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "250m"
+            memory: "512Mi"
+        volumeMounts:
+        - name: {{MICROSERVICE_SLUG}}-db
+          mountPath: /var/lib/postgresql/data
+        - name: tmpfs
+          mountPath: /tmp
+        - name: tmpfs
+          mountPath: /var/run
+      volumes:
+        - name: tmpfs
+          emptyDir: {}
+      imagePullSecrets:
+      - name: ps-gitlab-registry-secret
+  volumeClaimTemplates:
+  - metadata:
+      name: {{MICROSERVICE_SLUG}}-db
+      annotations:
+        resize.topolvm.io/storage_limit: 50Gi
+    spec:
+      storageClassName: "new-synology-nfs"
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 7Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{MICROSERVICE_SLUG}}-db-sts-pdb
+  namespace: dev
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      name: {{MICROSERVICE_SLUG}}-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{MICROSERVICE_SLUG}}-db-svc
+  namespace: dev
+  labels:
+    devOps: {{MICROSERVICE_SLUG}}-k8s
+spec:
+  clusterIP: None
+  ports:
+  - port: 5432
+    name: db
+  selector:
+    name: {{MICROSERVICE_SLUG}}-db

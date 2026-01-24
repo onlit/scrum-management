@@ -1,0 +1,1052 @@
+// /**
+//  * CREATED BY: Umer Lachi
+//  * CREATOR EMAIL: umer@pullstream.com
+//  * CREATION DATE: 20/02/2024
+//  *
+//  *
+//  * DESCRIPTION:
+//  * ------------------
+//  * This file defines the data model and schema configuration for an application using Prisma. It includes declarations of database tables as models, specifying fields, types, relations, indexes, and other database constraints. The schema.prisma file acts as the central definition for the structure of the database, informing Prisma's client generator how to construct queries and mutations based on the defined schema. Additionally, it can be used to configure database connections and Prisma's behavior, ensuring that the application's data layer is well-organized, maintainable, and aligned with the application's data requirements.
+//  * 
+//  *
+//  * REVISION 1:
+//  * REVISED BY: Umer Lachi
+//  * REVISION DATE: 01/03/2024
+//  * REVISION REASON: Add DataExchangeLog model.
+//  */
+
+// Defines the Prisma client generator configuration.
+// This specifies the use of the Prisma Client JS as the database client for interacting with the database.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configures the database connection details.
+// Uses PostgreSQL as the database provider and reads the connection URL from an environment variable.
+datasource db {
+  provider  = "postgresql"
+  url       = env("PGBOUNCER_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+enum DataExchangeLogTypes {
+  Import
+  Export
+}
+
+enum TranslationSyncType {
+  Full // Sync all models and fields
+  Model // Sync specific model(s)
+  Field // Sync specific field(s)
+}
+
+enum TranslationSyncMode {
+  Sync // Create/update translations
+  DryRun // Preview only, no changes
+  Generate // Generate missing codes + sync
+}
+
+enum ProcessStatus {
+  Processing // Represents an ongoing state of a process or operation.
+  Failed // Indicates an error state or a failure in the process.
+  Completed // Indicates a successful completion of the process or operation.
+}
+
+// Enumerates the supported field data types for model fields.
+// This allows specifying the type of data each field in a model should hold.
+enum FieldTypes {
+  String
+  Email
+  Int
+  Boolean
+  Json
+  DateTime
+  Date
+  UUID
+  Float
+  Decimal
+  URL
+  IPAddress
+  Enum
+  StringArray
+  IntArray
+  Upload
+  Phone
+  Latitude
+  Longitude
+  Percentage
+  Slug
+  Vector
+}
+
+// Distance metrics for vector similarity search
+enum VectorDistanceMetric {
+  Cosine // <=> operator - measures cosine distance
+  L2 // <-> operator - Euclidean distance
+  InnerProduct // <#> operator - inner product (negative)
+}
+
+// Index types for vector columns
+enum VectorIndexType {
+  HNSW // Hierarchical Navigable Small World - good recall, fast queries
+  IVFFlat // Inverted File Flat - faster build, lower recall
+  None // No index - skip index creation entirely
+}
+
+enum DeleteBehaviors {
+  Cascade // Child entities will be deleted when the parent is deleted.
+  Restrict // Only deletes the current record if related are already deleted.
+}
+
+enum ForeignKeyTargets {
+  Internal
+  External
+}
+
+enum ForeignKeyTypes {
+  OneToOne
+  OneToMany
+}
+
+enum TextDirection {
+  LTR // Left to right
+  RTL // Right to left
+}
+
+enum DeploymentState {
+  Development
+  Production
+}
+
+// Action types for dependency rules
+enum DependencyActionType {
+  Show // Make field visible
+  Hide // Hide field
+  Require // Make field required
+  Optional // Make field optional
+  Enable // Enable field (for chained FK dependencies)
+  Disable // Disable field
+}
+
+// Condition operators
+enum DependencyConditionOperator {
+  Equals // value === targetValue
+  NotEquals // value !== targetValue
+  In // value in [...]
+  NotIn // value not in [...]
+  IsSet // value !== null/undefined (for FK chains)
+  IsNotSet // value === null/undefined
+}
+
+// Logical operators for multiple conditions
+enum DependencyLogicOperator {
+  And // All conditions must be true
+  Or // At least one condition must be true
+}
+
+// Group requirement types
+enum GroupRequirementType {
+  AtLeastOne // At least one field in group must be filled
+  ExactlyOne // Exactly one field (mutually exclusive)
+  All // All fields required
+  None // All fields optional
+}
+
+// Dashboard widget types
+enum WidgetType {
+  KpiCard // Single metric display with trend
+  FunnelChart // Stage-based funnel (existing)
+  BarChart // Vertical/horizontal bars
+  LineChart // Time series line
+  AreaChart // Filled line chart
+  PieChart // Pie/donut chart
+  DonutChart // Ring chart variant
+}
+
+// Aggregation types for metrics
+enum AggregationType {
+  Count // COUNT(*)
+  Sum // SUM(field)
+  Average // AVG(field)
+  Min // MIN(field)
+  Max // MAX(field)
+}
+
+// Widget size in 12-column grid
+enum WidgetSize {
+  Small // 3 columns (1/4 width)
+  Medium // 6 columns (1/2 width)
+  Large // 9 columns (3/4 width)
+  Full // 12 columns (full width)
+}
+
+// Date range presets for filtering
+enum DateRangePreset {
+  Today
+  Yesterday
+  Last7Days
+  Last30Days
+  ThisMonth
+  LastMonth
+  Last90Days
+  ThisYear
+  AllTime
+}
+
+// Metric output formatting types
+enum MetricOutputType {
+  Number // Plain number
+  Currency // Format as currency
+  Percentage // Format as percentage
+  Duration // Format as time duration
+}
+
+// Represents a microservice, including its metadata and configurations.
+model Microservice {
+  id                              String            @id @default(uuid()) @db.Uuid()
+  erdUrl                          String?
+  name                            String            @db.VarChar(200) // Name of the microservice.
+  label                           String?           @db.VarChar(200) // Name of the microservice.
+  version                         String            @db.VarChar(50) // Version of the microservice.
+  description                     String? // Optional microservice description.
+  deploymentState                 DeploymentState?  @default(Development)
+  tags                            String? // Optional tags for easier categorization or search.
+  modelDefns                      ModelDefn[] // Associated model definitions.
+  enumDefns                       EnumDefn[] // Associated enumeration definitions.
+  instances                       Instance[] // Instances of this microservice deployed.
+  menus                           MenuDefn[]
+  dashboardConfig                 DashboardConfig?
+  dashboardMetrics                DashboardMetric[]
+  everyoneCanSeeIt                Boolean           @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean           @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean           @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String            @db.Uuid() // Identifier for the client associated.
+  createdBy                       String            @db.Uuid() // User ID of the creator.
+  updatedBy                       String            @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime          @default(now()) // Creation timestamp.
+  updatedAt                       DateTime          @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+
+  @@index([name]) // Index for searching by name
+  @@index([client]) // Index for client-based queries
+  @@index([createdAt]) // Index for date-based queries
+  @@index([deleted]) // Index for soft delete queries
+}
+
+// Defines a model within a microservice, including its fields and relationships.
+model ModelDefn {
+  id                         String       @id @default(uuid()) @db.Uuid()
+  order                      Float?
+  name                       String       @db.VarChar(200) // Model name.
+  slug                       String?      @db.VarChar(200) // Optional route slug override (kebab-case)
+  label                      String?      @db.VarChar(200)
+  labelTranslationCode       String?      @db.VarChar(8)
+  helpfulHintTranslationCode String?      @db.VarChar(8)
+  displayValueId             String?      @db.Uuid() // Foreign key referencing the field definition
+  displayValue               FieldDefn?   @relation("DisplayValueRelation", fields: [displayValueId], references: [id])
+  displayValueTemplate       String?      @db.Text // Optional template for multi-field display values, e.g., "{firstName} {lastName}"
+  description                String? // Optional model description.
+  helpfulHint                String?
+  useFormFlow                Boolean?
+  addToDashboard             Boolean?
+  lookup                     Boolean?
+  showAutomataSelector       Boolean?
+  systemMenuId               String?      @db.Uuid()
+  dashboardStageFieldId      String?      @db.Uuid()
+  dashboardStageField        FieldDefn?   @relation("DashboardStageFieldRelation", fields: [dashboardStageFieldId], references: [id])
+  tags                       String? // Optional tags for easier categorization or search.
+  microserviceId             String       @db.Uuid() // Associated microservice ID.
+  microservice               Microservice @relation(fields: [microserviceId], references: [id])
+  foreignKeyFieldDefns       FieldDefn[]  @relation("ForeignKeyModel") // Fields that are foreign keys.
+  fieldDefns                 FieldDefn[]  @relation("ModelForeignKeyFields") // Fields defined within the model.
+  menuDefns                  MenuDefn[]   @relation("AssociatedModel")
+
+  // Field groups for this model
+  fieldGroups FieldGroup[]
+
+  // Dashboard relations
+  dashboardWidgets DashboardWidget[]
+  dashboardFilters DashboardFilter[]
+  dashboardMetrics DashboardMetric[]
+
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+
+  @@index([name]) // Index for searching by name
+  @@index([microserviceId]) // Index for microservice-based queries
+  @@index([client]) // Index for client-based queries
+  @@index([createdAt]) // Index for date-based queries
+  @@index([deleted]) // Index for soft delete queries
+}
+
+// Represents a field definition within a model, detailing its type and constraints.
+model FieldDefn {
+  id                         String          @id @default(uuid()) @db.Uuid()
+  name                       String          @db.VarChar(200) // Field name.
+  onDelete                   DeleteBehaviors @default(Cascade)
+  labelTranslationCode       String?         @db.VarChar(8)
+  helpfulHintTranslationCode String?         @db.VarChar(8)
+  description                String? // Optional field description.
+  dataType                   FieldTypes // Data type of the field, referencing the FieldTypes enum.
+  isForeignKey               Boolean? // Marks the field as a foreign key.
+  isOptional                 Boolean? // Marks the field as optional.
+  isUnique                   Boolean? // Marks the field as having a unique constraint.
+  isIndex                    Boolean? // Marks the field as indexed.
+  enumDefnId                 String?         @db.Uuid() // Associated enum definition ID, if applicable.
+  enumDefn                   EnumDefn?       @relation(fields: [enumDefnId], references: [id]) // Linked enum definition.
+  minLength                  Int? // Optional minimum length for string fields.
+  maxLength                  Int? // Optional maximum length for string fields.
+  defaultValue               String? // Optional default value for the field.
+  helpfulHint                String?
+  tags                       String? // Optional tags for easier categorization or search.
+  foreignKeyModel            ModelDefn?      @relation("ForeignKeyModel", fields: [foreignKeyModelId], references: [id])
+  foreignKeyModelId          String?         @db.Uuid() // Model ID if this field is a foreign key.
+  model                      ModelDefn       @relation("ModelForeignKeyFields", fields: [modelId], references: [id]) // Parent model.
+  modelId                    String          @db.Uuid() // Parent model ID.
+
+  // DEPRECATED: Use FieldDependencyRule instead for more flexible dependency management
+  // This field is kept for backward compatibility only and will be removed in a future version
+  // New implementations should use the FieldDependencyRule system for:
+  // - Conditional visibility, requirements, and enablement
+  // - Field groups with collective validation
+  // - Chained dependencies with priority-based execution
+  dependsOnFieldId             String?           @db.Uuid()
+  dependsOnField               FieldDefn?        @relation("FieldDependsOn", fields: [dependsOnFieldId], references: [id], onDelete: SetNull)
+  dependentFields              FieldDefn[]       @relation("FieldDependsOn")
+  label                        String?           @db.VarChar(200)
+  showInTable                  Boolean?
+  showInCreateForm             Boolean?          @default(true)
+  order                        Float?
+  isClickableLink              Boolean? // Marks the field as clickable link.
+  isMultiline                  Boolean? // Marks the field as multiline.
+  showInDetailCard             Boolean?
+  isEditable                   Boolean?
+  foreignKeyTarget             ForeignKeyTargets @default(Internal) // Enum to indicate the foreign key target.
+  externalMicroserviceId       String?           @db.Uuid() // External microservice ID if target is external.
+  externalModelId              String?           @db.Uuid() // External model ID if target is external.
+  externalDisplayValueId       String?           @db.Uuid()
+  externalDisplayValue         String?           @db.VarChar(200)
+  externalIsOptional           Boolean? // Marks the field as optional.
+  foreignKeyType               ForeignKeyTypes?  @default(OneToMany)
+  displayValueModelDefn        ModelDefn[]       @relation("DisplayValueRelation")
+  dashboardStageFieldModelDefn ModelDefn[]       @relation("DashboardStageFieldRelation")
+
+  // New relations for dependency system
+  targetRules      FieldDependencyRule[]      @relation("TargetFieldRules")
+  sourceConditions FieldDependencyCondition[] @relation("SourceFieldConditions")
+
+  // Vector field configuration (only applicable when dataType = Vector)
+  vectorDimension      Int? // 1-16000, e.g., 1536 for OpenAI
+  vectorDistanceMetric VectorDistanceMetric? @default(Cosine)
+  vectorIndexType      VectorIndexType?      @default(HNSW)
+  vectorIndexConfigs   VectorIndexConfig[] // Advanced index tuning
+
+  // Dashboard widget relations
+  aggregateWidgets  DashboardWidget[]  @relation("AggregateField")
+  groupByWidgets    DashboardWidget[]  @relation("GroupByField")
+  dashboardFilters  DashboardFilter[]
+  widgetDateConfigs WidgetDateConfig[]
+
+  // Dashboard metric relations
+  metricAggregateFields DashboardMetric[] @relation("MetricAggregateField")
+  metricGroupByFields   DashboardMetric[] @relation("MetricGroupByField")
+
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// Vector index configuration for advanced pgvector tuning
+model VectorIndexConfig {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // HNSW parameters
+  hnswM           Int? @default(16) // Max connections per layer (2-100)
+  hnswEfConstruct Int? @default(64) // Construction search width (4-1000)
+
+  // IVFFlat parameters
+  ivfLists Int? @default(100) // Number of inverted lists
+
+  // Relation (no @unique for soft delete compatibility)
+  fieldDefn   FieldDefn @relation(fields: [fieldDefnId], references: [id])
+  fieldDefnId String    @db.Uuid()
+
+  // Audit fields
+  client    String    @db.Uuid()
+  createdBy String    @db.Uuid()
+  updatedBy String    @db.Uuid()
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  @@index([fieldDefnId])
+  @@index([client])
+  @@index([deleted])
+}
+
+// Represents an enumeration definition within a microservice, including metadata and associated values.
+model EnumDefn {
+  id                              String       @id @default(uuid()) @db.Uuid()
+  name                            String       @db.VarChar(200) // Unique name of the enumeration.
+  description                     String? // Optional description of what the enumeration represents.
+  tags                            String? // Optional tags for easier categorization or search.
+  enumValues                      EnumValue[] // List of values that this enumeration can take.
+  fieldDefns                      FieldDefn[] // Fields within models that use this enumeration.
+  microservice                    Microservice @relation(fields: [microserviceId], references: [id]) // The microservice this enumeration belongs to.
+  microserviceId                  String       @db.Uuid()
+  everyoneCanSeeIt                Boolean      @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean      @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean      @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String       @db.Uuid() // Identifier for the client associated.
+  createdBy                       String       @db.Uuid() // User ID of the creator.
+  updatedBy                       String       @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime     @default(now()) // Creation timestamp.
+  updatedAt                       DateTime     @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// Represents a single value within an enumeration, including optional description and tags.
+model EnumValue {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  value                           String    @db.VarChar(200) // The actual value of the enumeration.
+  label                           String    @db.VarChar(200) // User-friendly label for the enumeration value.
+  description                     String? // Optional description for the enumeration value.
+  tags                            String? // Optional tags for easier categorization or search.
+  enumDefnId                      String    @db.Uuid() // ID of the parent enumeration definition.
+  enumDefn                        EnumDefn  @relation(fields: [enumDefnId], references: [id]) // The parent enumeration definition.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+model MenuDefn {
+  id                              String       @id @default(uuid()) @db.Uuid()
+  order                           Int // Order of the menu item within its parent.
+  modelId                         String       @db.Uuid()
+  model                           ModelDefn    @relation("AssociatedModel", fields: [modelId], references: [id])
+  parentMenuId                    String?      @db.Uuid() // Reference to the parent menu (for sub-menus).
+  parentMenu                      MenuDefn?    @relation("MenuHierarchy", fields: [parentMenuId], references: [id]) // Self-relation for hierarchical structure.
+  microserviceId                  String       @db.Uuid() // Associated microservice ID.
+  microservice                    Microservice @relation(fields: [microserviceId], references: [id])
+  tags                            String? // Optional tags for easier categorization or search.
+  subMenus                        MenuDefn[]   @relation("MenuHierarchy")
+  everyoneCanSeeIt                Boolean      @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean      @default(false) // Visibility for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean      @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String       @db.Uuid() // Identifier for the client associated.
+  createdBy                       String       @db.Uuid() // User ID of the creator.
+  updatedBy                       String       @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime     @default(now()) // Creation timestamp.
+  updatedAt                       DateTime     @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// The DataExchangeLog model serves as a comprehensive log for tracking and auditing data import and export operations within the system. It records the details of each operation, including its type (import or export), status, associated file information, and any errors encountered. This model facilitates monitoring data movement activities, ensures data integrity, and supports troubleshooting by providing insights into the success or failure of data exchange processes. Visibility controls and association with specific clients and users enable fine-grained access and accountability.
+model DataExchangeLog {
+  id                              String               @id @default(uuid()) @db.Uuid()
+  type                            DataExchangeLogTypes // 'Import' or 'Export'
+  status                          ProcessStatus        @default(Processing)
+  modelName                       String // Name of the model being imported/exported
+  filePath                        String? // Path to the file being imported/exported
+  failureReason                   String? // Error message in case the job fails
+  completedAt                     DateTime? // When the job was completed
+  failedAt                        DateTime? // When the job failed
+  importedRowsCount               Int? // Number of rows imported
+  errorsRowsCount                 Int? // Number of rows failed to import
+  metaData                        Json?
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean              @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean              @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean              @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String               @db.Uuid() // Identifier for the client associated.
+  createdBy                       String               @db.Uuid() // User ID of the creator.
+  updatedBy                       String               @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime             @default(now()) // Creation timestamp.
+  updatedAt                       DateTime             @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// Tracks translation sync job execution with full audit trail
+model TranslationSyncLog {
+  id     String              @id @default(uuid()) @db.Uuid()
+  type   TranslationSyncType @default(Full)
+  mode   TranslationSyncMode @default(Sync)
+  status ProcessStatus       @default(Processing)
+
+  // Scope filters (optional)
+  microserviceId String? @db.Uuid()
+  modelId        String? @db.Uuid()
+
+  // Progress tracking
+  totalModels         Int?
+  processedModels     Int  @default(0)
+  totalFields         Int?
+  processedFields     Int  @default(0)
+  translationsCreated Int  @default(0)
+  translationsUpdated Int  @default(0)
+  codesGenerated      Int  @default(0)
+
+  // Checkpoint for resumability
+  lastProcessedModelId String? @db.Uuid()
+  lastProcessedFieldId String? @db.Uuid()
+
+  // Results
+  failureReason String?
+  errorDetails  Json? // Array of { entityType, entityId, error }
+  completedAt   DateTime?
+  failedAt      DateTime?
+
+  // Visibility and audit
+  tags                            String?
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([status])
+  @@index([client])
+  @@index([createdAt])
+  @@index([microserviceId])
+}
+
+// Represents a grouping of blocks, potentially for organizational or logical structuring within the system.
+model BlockGroup {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  order                           Int? // Optional ordering index for display or sorting purposes.
+  name                            String    @db.VarChar(200) // Name of the block group.
+  description                     String? // Optional description of the block group's purpose.
+  tags                            String? // Optional tags for easier categorization or search.
+  blocks                          Block[] // Blocks that belong to this group.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// Represents a single block within a group, potentially a unit of functionality or component.
+model Block {
+  id                              String        @id @default(uuid()) @db.Uuid()
+  order                           Int? // Optional ordering index for display or sorting purposes.
+  code                            String        @db.VarChar(8) // Short code or identifier for the block.
+  name                            String        @db.VarChar(200) // Name of the block.
+  description                     String? // Optional description of the block's purpose.
+  tags                            String? // Optional tags for easier categorization or search.
+  group                           BlockGroup    @relation(fields: [groupId], references: [id]) // The group this block belongs to.
+  groupId                         String        @db.Uuid() // ID of the parent block group.
+  instanceLogs                    InstanceLog[] // Logs associated with instances of this block.
+  everyoneCanSeeIt                Boolean       @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean       @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean       @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String        @db.Uuid() // Identifier for the client associated.
+  createdBy                       String        @db.Uuid() // User ID of the creator.
+  updatedBy                       String        @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime      @default(now()) // Creation timestamp.
+  updatedAt                       DateTime      @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// Represents an instance of a microservice, including its operational status and associated logs.
+model Instance {
+  id            String  @id @default(uuid()) @db.Uuid() // Unique identifier for the instance.
+  duration      Int?
+  apiGitRepoUrl String?
+  feGitRepoUrl  String?
+  failureReason String? @db.Text // Full error message (no truncation)
+
+  // Enhanced error tracking fields
+  errorType    String? @db.VarChar(50) // Error type: VALIDATION, GIT_ERROR, MIGRATION, INTERNAL, etc.
+  errorPhase   String? @db.VarChar(50) // Generation phase where error occurred: API_GENERATION, FRONTEND, DEVOPS, GIT_PUSH
+  errorContext String? @db.VarChar(200) // Function/operation context where error occurred
+  errorDetails Json? // Full structured error: { stack, originalError, code, timestamp, metadata }
+
+  // Request tracing
+  requestTraceId                  String?       @db.VarChar(100) // Original HTTP request traceId for log correlation
+  devopsGitRepoUrl                String?
+  status                          ProcessStatus // Operational status of the instance, e.g., 'Error', 'Success'.
+  queuePosition                   Int? // Position in the queue (null when processing or completed)
+  queuedAt                        DateTime? // When the job was added to the queue
+  processingStartedAt             DateTime? // When actual processing started (after queue wait)
+  microservice                    Microservice  @relation(fields: [microserviceId], references: [id]) // The microservice this instance belongs to.
+  microserviceId                  String        @db.Uuid() // Foreign key to the associated microservice.
+  tags                            String? // Optional tags for easier categorization or search.
+  instanceLogs                    InstanceLog[] // Logs related to this instance, capturing events or changes.
+  everyoneCanSeeIt                Boolean       @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean       @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean       @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String        @db.Uuid() // Identifier for the client associated.
+  createdBy                       String        @db.Uuid() // User ID of the creator.
+  updatedBy                       String        @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime      @default(now()) // Creation timestamp.
+  updatedAt                       DateTime      @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+// Captures a log entry for an instance, detailing an event, change, or status update.
+model InstanceLog {
+  id                              String        @id @default(uuid()) @db.Uuid() // Unique identifier for the log entry.
+  instance                        Instance      @relation(fields: [instanceId], references: [id]) // The instance this log belongs to.
+  instanceId                      String        @db.Uuid() // Foreign key to the associated instance.
+  block                           Block         @relation(fields: [blockId], references: [id]) // The block related to this log, if applicable.
+  blockId                         String        @db.Uuid() // Foreign key to the associated block, if applicable.
+  status                          ProcessStatus // Status of the event or change logged, e.g., 'Error', 'Success'.
+  message                         String? // Optional detailed message or description of the log entry.
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean       @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean       @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean       @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String        @db.Uuid() // Identifier for the client associated.
+  createdBy                       String        @db.Uuid() // User ID of the creator.
+  updatedBy                       String        @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime      @default(now()) // Creation timestamp.
+  updatedAt                       DateTime      @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+}
+
+model Language {
+  id                              String        @id @default(uuid()) @db.Uuid() // Unique identifier for the log entry.
+  code                            String // Unique language code (e.g, "en", "ar", "zh-CN", "sw", "zu", "xh")
+  name                            String // "English", "العربية", "简体中文", "Kiswahili", "isiZulu", "isiXhosa"
+  direction                       TextDirection @default(LTR) // "ltr" or "rtl"
+  isPrimary                       Boolean       @default(false) // Marks the primary/default language for bidirectional translation sync
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean       @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean       @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean       @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String        @db.Uuid() // Identifier for the client associated.
+  createdBy                       String        @db.Uuid() // User ID of the creator.
+  updatedBy                       String        @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime      @default(now()) // Creation timestamp.
+  updatedAt                       DateTime      @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+  translations                    Translation[]
+}
+
+model Translation {
+  id                              String    @id @default(uuid()) @db.Uuid()
+  translationCode                 String    @db.VarChar(8) // Unique code that remains the same across languages for the same text
+  value                           String    @db.Text // The actual translated text
+  namespace                       String    @default("common") // e.g., "common", "home", "profile"
+  languageId                      String    @db.Uuid() // Foreign key to Language.id
+  language                        Language  @relation(fields: [languageId], references: [id])
+  tags                            String? // Optional tags for easier categorization or search.
+  everyoneCanSeeIt                Boolean   @default(false) // Visibility control.
+  anonymousCanSeeIt               Boolean   @default(false) // Visibility control for anonymous users.
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true) // Company-wide visibility.
+  onlyTheseRolesCanSeeIt          Json? // Specific roles with visibility access.
+  onlyTheseUsersCanSeeIt          Json? // Specific users with visibility access.
+  client                          String    @db.Uuid() // Identifier for the client associated.
+  createdBy                       String    @db.Uuid() // User ID of the creator.
+  updatedBy                       String    @db.Uuid() // User ID of the last updater.
+  createdAt                       DateTime  @default(now()) // Creation timestamp.
+  updatedAt                       DateTime  @updatedAt // Last update timestamp.
+  deleted                         DateTime? // Deletion timestamp, if deleted.
+
+  @@index([languageId])
+  @@index([namespace])
+  @@index([translationCode])
+}
+
+// Field group for collective requirements
+model FieldGroup {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Associated model
+  modelId String    @db.Uuid()
+  model   ModelDefn @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  // Group metadata
+  name        String  @db.VarChar(200)
+  label       String? @db.VarChar(200)
+  description String? @db.Text
+
+  // Group requirement type
+  requirementType GroupRequirementType @default(AtLeastOne)
+
+  // Rules belonging to this group
+  rules FieldDependencyRule[]
+
+  // Standard fields
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([modelId])
+  @@index([client])
+  @@index([deleted])
+}
+
+// Field dependency rule
+model FieldDependencyRule {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Target field (affected by this rule)
+  targetFieldId String    @db.Uuid()
+  targetField   FieldDefn @relation("TargetFieldRules", fields: [targetFieldId], references: [id], onDelete: Cascade)
+
+  // What action to perform when conditions are met
+  action DependencyActionType
+
+  // Logical operator for combining multiple conditions
+  logicOperator DependencyLogicOperator @default(And)
+
+  // Execution priority (lower executes first, for chaining)
+  priority Int @default(0)
+
+  // Optional: Group this field belongs to
+  fieldGroupId String?     @db.Uuid()
+  fieldGroup   FieldGroup? @relation(fields: [fieldGroupId], references: [id], onDelete: Cascade)
+
+  // Conditions for this rule
+  conditions FieldDependencyCondition[]
+
+  // Human-readable description
+  description String? @db.Text
+
+  // Standard fields
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([targetFieldId])
+  @@index([fieldGroupId])
+  @@index([client])
+  @@index([deleted])
+}
+
+// Individual condition within a rule
+model FieldDependencyCondition {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Parent rule
+  ruleId String              @db.Uuid()
+  rule   FieldDependencyRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  // Source field being evaluated
+  sourceFieldId String    @db.Uuid()
+  sourceField   FieldDefn @relation("SourceFieldConditions", fields: [sourceFieldId], references: [id], onDelete: Cascade)
+
+  // Comparison operator
+  operator DependencyConditionOperator
+
+  // Value(s) to compare against
+  // For Equals/NotEquals: single value (e.g., "email", "phone", true, 5)
+  // For In/NotIn: array of values (e.g., ["email", "sms"])
+  // For IsSet/IsNotSet: null (operator checks existence)
+  compareValue Json?
+
+  // Standard fields
+  client    String    @db.Uuid()
+  createdBy String    @db.Uuid()
+  updatedBy String    @db.Uuid()
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  @@index([ruleId])
+  @@index([sourceFieldId])
+}
+
+// Dashboard configuration for a microservice (1:1 relationship)
+model DashboardConfig {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Parent microservice (1:1)
+  microserviceId String       @unique @db.Uuid()
+  microservice   Microservice @relation(fields: [microserviceId], references: [id], onDelete: Cascade)
+
+  // Display settings
+  title       String? @db.VarChar(200)
+  description String? @db.Text
+
+  // Global date filter settings
+  enableDateFilter Boolean         @default(true)
+  defaultDateRange DateRangePreset @default(Last30Days)
+  dateFieldName    String?         @db.VarChar(100) // Default date field name for filtering
+
+  // Relations
+  widgets DashboardWidget[]
+  filters DashboardFilter[]
+
+  // Standard visibility and audit fields
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([microserviceId])
+  @@index([client])
+  @@index([deleted])
+}
+
+// Pre-computed metric definitions for complex queries
+model DashboardMetric {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Parent microservice
+  microserviceId String       @db.Uuid()
+  microservice   Microservice @relation(fields: [microserviceId], references: [id], onDelete: Cascade)
+
+  // Metric definition
+  name        String  @db.VarChar(200) // Internal name (e.g., "monthlyRevenue")
+  label       String? @db.VarChar(200) // Display label
+  description String? @db.Text
+
+  // Query config - relational fields (replacing queryConfig JSON)
+  modelId          String?          @db.Uuid()
+  model            ModelDefn?       @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  aggregationType  AggregationType?
+  aggregateFieldId String?          @db.Uuid()
+  aggregateField   FieldDefn?       @relation("MetricAggregateField", fields: [aggregateFieldId], references: [id], onDelete: SetNull)
+  groupByFieldId   String?          @db.Uuid()
+  groupByField     FieldDefn?       @relation("MetricGroupByField", fields: [groupByFieldId], references: [id], onDelete: SetNull)
+
+  // Complex query parts - stay as JSON
+  whereConditions Json?
+  queryJoins      Json?
+
+  // Output formatting
+  outputType MetricOutputType @default(Number)
+
+  // Caching (optional)
+  cacheDurationMins Int? @default(5)
+
+  // Widgets using this metric
+  widgets DashboardWidget[]
+
+  // Standard visibility and audit fields
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([microserviceId])
+  @@index([name])
+  @@index([modelId])
+  @@index([client])
+  @@index([deleted])
+}
+
+// Individual widget configuration for charts and KPI cards
+model DashboardWidget {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Parent dashboard
+  dashboardConfigId String          @db.Uuid()
+  dashboardConfig   DashboardConfig @relation(fields: [dashboardConfigId], references: [id], onDelete: Cascade)
+
+  // Display settings
+  title       String     @db.VarChar(200)
+  description String?    @db.Text
+  widgetType  WidgetType
+  size        WidgetSize @default(Medium)
+
+  // Grid positioning (12-column grid)
+  gridColumn Int @default(1) // Start column (1-12)
+  gridRow    Int @default(1) // Row number
+
+  // Data source - EITHER model-based OR metric-based (mutually exclusive)
+  modelId  String?          @db.Uuid()
+  model    ModelDefn?       @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  metricId String?          @db.Uuid()
+  metric   DashboardMetric? @relation(fields: [metricId], references: [id], onDelete: SetNull)
+
+  // Field-based aggregation config (when using modelId)
+  aggregationType  AggregationType?
+  aggregateFieldId String?          @db.Uuid() // Field to aggregate (for Sum/Avg/Min/Max)
+  aggregateField   FieldDefn?       @relation("AggregateField", fields: [aggregateFieldId], references: [id], onDelete: SetNull)
+  groupByFieldId   String?          @db.Uuid() // Field to group by (for charts)
+  groupByField     FieldDefn?       @relation("GroupByField", fields: [groupByFieldId], references: [id], onDelete: SetNull)
+
+  // KPI-specific: trend comparison
+  showTrend           Boolean @default(false)
+  trendComparisonDays Int?    @default(7) // Compare vs N days ago
+
+  // Per-widget date override
+  dateConfig WidgetDateConfig?
+
+  // Ordering within dashboard
+  order Float?
+
+  // Standard visibility and audit fields
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([dashboardConfigId])
+  @@index([modelId])
+  @@index([metricId])
+  @@index([gridRow, gridColumn])
+  @@index([client])
+  @@index([deleted])
+}
+
+// Dynamic filter dropdown configurations
+model DashboardFilter {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Parent dashboard
+  dashboardConfigId String          @db.Uuid()
+  dashboardConfig   DashboardConfig @relation(fields: [dashboardConfigId], references: [id], onDelete: Cascade)
+
+  // Filter source - must be Enum or FK field
+  modelId String    @db.Uuid()
+  model   ModelDefn @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  fieldId String    @db.Uuid()
+  field   FieldDefn @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  // Display settings
+  label       String? @db.VarChar(200)
+  placeholder String? @db.VarChar(200)
+
+  // Behavior
+  allowMultiple Boolean @default(false) // Multi-select dropdown
+  defaultValue  Json? // Pre-selected value(s)
+
+  // Ordering in filter bar
+  order Float?
+
+  // Standard visibility and audit fields
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([dashboardConfigId])
+  @@index([modelId])
+  @@index([fieldId])
+  @@index([client])
+  @@index([deleted])
+}
+
+// Per-widget date field override settings (1:1 with DashboardWidget)
+model WidgetDateConfig {
+  id String @id @default(uuid()) @db.Uuid()
+
+  // Parent widget (1:1)
+  widgetId String          @unique @db.Uuid()
+  widget   DashboardWidget @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+
+  // Override settings
+  dateFieldId        String          @db.Uuid()
+  dateField          FieldDefn       @relation(fields: [dateFieldId], references: [id], onDelete: Cascade)
+  defaultRange       DateRangePreset @default(Last30Days)
+  ignoreGlobalFilter Boolean         @default(false) // Use own date instead of global
+
+  // Standard visibility and audit fields
+  everyoneCanSeeIt                Boolean   @default(false)
+  anonymousCanSeeIt               Boolean   @default(false)
+  everyoneInObjectCompanyCanSeeIt Boolean   @default(true)
+  onlyTheseRolesCanSeeIt          Json?
+  onlyTheseUsersCanSeeIt          Json?
+  client                          String    @db.Uuid()
+  createdBy                       String    @db.Uuid()
+  updatedBy                       String    @db.Uuid()
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  deleted                         DateTime?
+
+  @@index([widgetId])
+  @@index([dateFieldId])
+  @@index([client])
+  @@index([deleted])
+}
