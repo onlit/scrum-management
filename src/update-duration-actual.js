@@ -143,7 +143,7 @@ function calculateActualHours(tasks, totalHoursWorked) {
       duration_estimate: task.duration_estimate,
       duration_unit: task.duration_unit,
       estimate_in_hours: estimateInHours,
-      duration_actual: Math.round(actualHours * 100) / 100 // Round to 2 decimal places
+      duration_actual: Math.round(actualHours) // API requires integer
     };
   });
 }
