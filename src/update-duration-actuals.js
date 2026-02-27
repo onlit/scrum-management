@@ -59,8 +59,8 @@ function parseArgs() {
   const opts = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--minutes' && args[i + 1]) opts.minutes = parseInt(args[++i], 10);
-    else if (args[i] === '--from' && args[i + 1]) opts.from = parseInt(args[++i], 10);
-    else if (args[i] === '--to' && args[i + 1]) opts.to = parseInt(args[++i], 10);
+    else if (args[i] === '--from' && args[i + 1]) opts.from = parseFloat(args[++i]);
+    else if (args[i] === '--to' && args[i + 1]) opts.to = parseFloat(args[++i]);
   }
   if (!opts.minutes || !opts.from || !opts.to) {
     console.error('Usage: npm run update-actuals -- --minutes <total> --from <order> --to <order>');
@@ -83,13 +83,19 @@ async function main() {
 
   const dataPath = path.resolve(__dirname, '..', 'tasks-imported.json');
   const data = require(dataPath);
+  const items = Array.isArray(data) && data[0]?.items ? data[0].items : data.items || data;
 
-  // Filter subtasks within the parent order range
-  const subtasks = data.items.filter((item) => {
-    const match = item.full_order.match(/^(\d+)\./);
-    if (!match) return false;
-    const parentOrder = parseInt(match[1]);
-    return parentOrder >= opts.from && parentOrder <= opts.to;
+  // Filter leaf subtasks within the full_order range
+  const subtasks = items.filter((item) => {
+    if (!item.full_order) return false;
+    const order = parseFloat(item.full_order);
+    if (isNaN(order)) return false;
+    if (order < opts.from || order > opts.to) return false;
+    // Only include leaf tasks (no children with this prefix)
+    const isLeaf = !items.some(
+      (other) => other.full_order && other.full_order !== item.full_order && other.full_order.startsWith(item.full_order + '.'),
+    );
+    return isLeaf;
   });
 
   if (subtasks.length === 0) {
