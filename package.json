@@ -1,4 +1,11 @@
 {
+  "name": "scrum-management",
+  "private": true,
+  "scripts": {
+    "post-tasks": "node src/post-tasks.js",
+    "update-tasks": "node src/update-tasks.js",
+    "update-actuals": "node src/update-duration-actuals.js"
+  },
   "dependencies": {
     "axios": "^1.13.4",
     "dotenv": "^17.2.3"
